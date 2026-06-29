@@ -2,22 +2,97 @@
 
 {% block content %}
 
-<h1>🧬 VaxiFlow</h1>
+<div class="d-flex justify-content-between align-items-center mb-4">
 
-<h3>AI Powered Reverse Vaccinology Platform</h3>
+    <div>
+        <h1>🧬 VaxiFlow Dashboard</h1>
+
+        <p class="text-muted">
+            Welcome to your Reverse Vaccinology Workspace.
+        </p>
+    </div>
+
+    <div>
+        <a href="/projects/create/" class="btn btn-primary btn-lg">
+            + Create Project
+        </a>
+    </div>
+
+</div>
 
 <hr>
 
-<p>
-Welcome to VaxiFlow Dashboard.
-</p>
+{% if projects %}
 
-<button class="btn btn-primary">
-    Create Project
-</button>
+<div class="row">
 
-<button class="btn btn-success">
-    Upload Genome
-</button>
+    {% for project in projects %}
+
+    <div class="col-lg-6 mb-4">
+
+        <div class="card shadow h-100">
+
+            <div class="card-body">
+
+                <h3 class="card-title">
+                    📁 {{ project.project_name }}
+                </h3>
+
+                <hr>
+
+                <p>
+                    <strong>🦠 Organism:</strong><br>
+                    {{ project.organism }}
+                </p>
+
+                <p>
+                    <strong>📅 Created:</strong><br>
+                    {{ project.created_at }}
+                </p>
+
+                <div class="d-flex justify-content-between">
+
+                    <a
+                        href="/projects/{{ project.id }}/"
+                        class="btn btn-success">
+
+                        Open Project
+
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    {% endfor %}
+
+</div>
+
+{% else %}
+
+<div class="alert alert-info">
+
+    <h3>No Research Projects Yet</h3>
+
+    <p>
+        Start your first Reverse Vaccinology project by clicking
+        <strong>Create Project</strong>.
+    </p>
+
+    <a
+        href="/projects/create/"
+        class="btn btn-primary">
+
+        + Create First Project
+
+    </a>
+
+</div>
+
+{% endif %}
 
 {% endblock %}

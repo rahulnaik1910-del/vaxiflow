@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+
+        <h1>🧬 {{ project.project_name }}</h1>
+
+        <p class="text-muted">
+            Reverse Vaccinology Research Workspace
+        </p>
+
+    </div>
+
+    <div>
+
+        <a href="/" class="btn btn-secondary">
+            ← Back to Dashboard
+        </a>
+
+    </div>
+
+</div>
+
+<hr>
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-body">
+
+        <h3>📋 Project Information</h3>
+
+        <hr>
+
+        <div class="row">
+
+            <div class="col-md-6">
+
+                <p>
+                    <strong>🦠 Organism</strong><br>
+                    {{ project.organism }}
+                </p>
+
+            </div>
+
+            <div class="col-md-6">
+
+                <p>
+                    <strong>📅 Created</strong><br>
+                    {{ project.created_at }}
+                </p>
+
+            </div>
+
+        </div>
+
+        <p>
+
+            <strong>📝 Description</strong>
+
+        </p>
+
+        <div class="alert alert-light">
+
+            {{ project.description|default:"No description provided." }}
+
+        </div>
+
+    </div>
+
+</div>
+
+<h3 class="mb-4">
+    🔬 Research Modules
+</h3>
+
+<div class="row g-4">
+
+    <!-- Upload Genome -->
+
+    <div class="col-md-4">
+
+        <div class="card shadow-sm h-100">
+
+            <div class="card-body">
+
+                <h4>📂 Upload Genome</h4>
+
+                <p>
+                    Upload FASTA, FNA, GBK or GFF genome files.
+                </p>
+
+                <a
+                    href="/projects/{{ project.id }}/upload/"
+                    class="btn btn-primary w-100">
+
+                    Upload Genome
+
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Genome Annotation -->
+
+    <div class="col-md-4">
+
+        <div class="card shadow-sm h-100">
+
+            <div class="card-body">
+
+                <h4>🧬 Genome Annotation</h4>
+
+                <p>
+                    Run automated genome annotation using Prokka.
+                </p>
+
+                <button class="btn btn-secondary w-100" disabled>
+
+                    Coming Soon
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Reverse Vaccinology -->
+
+    <div class="col-md-4">
+
+        <div class="card shadow-sm h-100">
+
+            <div class="card-body">
+
+                <h4>🧪 Reverse Vaccinology</h4>
+
+                <p>
+                    Identify vaccine candidates from annotated genomes.
+                </p>
+
+                <button class="btn btn-secondary w-100" disabled>
+
+                    Coming Soon
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- AI Assistant -->
+
+    <div class="col-md-4">
+
+        <div class="card shadow-sm h-100">
+
+            <div class="card-body">
+
+                <h4>🤖 AI Assistant</h4>
+
+                <p>
+                    Get AI-powered biological insights and explanations.
+                </p>
+
+                <button class="btn btn-secondary w-100" disabled>
+
+                    Coming Soon
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Reports -->
+
+    <div class="col-md-4">
+
+        <div class="card shadow-sm h-100">
+
+            <div class="card-body">
+
+                <h4>📊 Reports</h4>
+
+                <p>
+                    Generate publication-ready research reports.
+                </p>
+
+                <button class="btn btn-secondary w-100" disabled>
+
+                    Coming Soon
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Project Status -->
+
+    <div class="col-md-4">
+
+        <div class="card shadow-sm h-100">
+
+            <div class="card-body">
+
+                <h4>⚙️ Project Status</h4>
+
+                <p>
+
+                    Genome Upload:
+                    <span class="badge bg-warning text-dark">
+
+                        Pending
+
+                    </span>
+
+                </p>
+
+                <p>
+
+                    Analysis:
+                    <span class="badge bg-secondary">
+
+                        Not Started
+
+                    </span>
+
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
