@@ -15,30 +15,45 @@ Project:
 
 <div class="card shadow p-4">
 
-<form>
+    {% if error %}
 
-<div class="mb-3">
+    <div class="alert alert-danger">
 
-<label class="form-label">
+        {{ error }}
 
-Select Genome File
+    </div>
 
-</label>
+    {% endif %}
 
-<input
-type="file"
-class="form-control">
+    <form method="POST" enctype="multipart/form-data">
 
-</div>
+        {% csrf_token %}
 
-<button
-class="btn btn-primary">
+        <div class="mb-3">
 
-Upload Genome
+            <label class="form-label">
 
-</button>
+                Select Genome File
 
-</form>
+            </label>
+
+            <input
+                type="file"
+                class="form-control"
+                name="genome_file"
+                required>
+
+        </div>
+
+        <button
+            type="submit"
+            class="btn btn-primary">
+
+            Upload Genome
+
+        </button>
+
+    </form>
 
 </div>
 

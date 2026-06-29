@@ -1,12 +1,17 @@
 # Python
 __pycache__/
 *.py[cod]
+*.pyo
 
 # Virtual Environment
 .venv/
+venv/
 
-# Database
+# SQLite Database
 db.sqlite3
+
+# Media uploads
+media/
 
 # VS Code
 .vscode/
@@ -16,6 +21,3 @@ db.sqlite3
 
 # macOS
 .DS_Store
-
-# Windows
-Thumbs.db

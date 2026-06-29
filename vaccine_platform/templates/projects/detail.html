@@ -14,13 +14,9 @@
 
     </div>
 
-    <div>
-
-        <a href="/" class="btn btn-secondary">
-            ← Back to Dashboard
-        </a>
-
-    </div>
+    <a href="/" class="btn btn-secondary">
+        ← Back to Dashboard
+    </a>
 
 </div>
 
@@ -39,8 +35,11 @@
             <div class="col-md-6">
 
                 <p>
+
                     <strong>🦠 Organism</strong><br>
+
                     {{ project.organism }}
+
                 </p>
 
             </div>
@@ -48,8 +47,11 @@
             <div class="col-md-6">
 
                 <p>
+
                     <strong>📅 Created</strong><br>
+
                     {{ project.created_at }}
+
                 </p>
 
             </div>
@@ -73,12 +75,12 @@
 </div>
 
 <h3 class="mb-4">
+
     🔬 Research Modules
+
 </h3>
 
-<div class="row g-4">
-
-    <!-- Upload Genome -->
+<div class="row g-4 mb-5">
 
     <div class="col-md-4">
 
@@ -86,10 +88,12 @@
 
             <div class="card-body">
 
-                <h4>📂 Upload Genome</h4>
+                <h5>📂 Upload Genome</h5>
 
                 <p>
+
                     Upload FASTA, FNA, GBK or GFF genome files.
+
                 </p>
 
                 <a
@@ -106,7 +110,33 @@
 
     </div>
 
-    <!-- Genome Annotation -->
+    <div class="col-md-4">
+
+        <div class="card shadow-sm h-100">
+
+            <div class="card-body">
+
+                <h5>🧬 Genome Annotation</h5>
+
+                <p>
+
+                    Start annotation for uploaded genomes.
+
+                </p>
+
+                <button
+                    class="btn btn-outline-primary w-100"
+                    disabled>
+
+                    Select a Genome Below
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
 
     <div class="col-md-4">
 
@@ -114,13 +144,17 @@
 
             <div class="card-body">
 
-                <h4>🧬 Genome Annotation</h4>
+                <h5>🧪 Reverse Vaccinology</h5>
 
                 <p>
-                    Run automated genome annotation using Prokka.
+
+                    Vaccine candidate identification.
+
                 </p>
 
-                <button class="btn btn-secondary w-100" disabled>
+                <button
+                    class="btn btn-secondary w-100"
+                    disabled>
 
                     Coming Soon
 
@@ -132,119 +166,220 @@
 
     </div>
 
-    <!-- Reverse Vaccinology -->
+</div>
 
-    <div class="col-md-4">
+<div class="card shadow mb-5">
 
-        <div class="card shadow-sm h-100">
+    <div class="card-body">
 
-            <div class="card-body">
+        <h3>📂 Uploaded Genome Files</h3>
 
-                <h4>🧪 Reverse Vaccinology</h4>
+        <hr>
 
-                <p>
-                    Identify vaccine candidates from annotated genomes.
-                </p>
+        {% if genomes %}
 
-                <button class="btn btn-secondary w-100" disabled>
+        <table class="table table-hover align-middle">
 
-                    Coming Soon
+            <thead>
 
-                </button>
+                <tr>
 
-            </div>
+                    <th>Filename</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Uploaded</th>
+                    <th>Actions</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+            {% for genome in genomes %}
+
+                <tr>
+
+                    <td>
+
+                        📄 {{ genome.genome_file.name|cut:"genomes/" }}
+
+                    </td>
+
+                    <td>
+
+                        <span class="badge bg-success">
+
+                            Genome
+
+                        </span>
+
+                    </td>
+
+                    <td>
+
+                        <span class="badge bg-warning text-dark">
+
+                            Ready
+
+                        </span>
+
+                    </td>
+
+                    <td>
+
+                        {{ genome.uploaded_at }}
+
+                    </td>
+
+                    <td>
+
+                        <a
+                            href="{% url 'download_genome' genome.id %}"
+                            class="btn btn-sm btn-success mb-2">
+
+                            ⬇ Download
+
+                        </a>
+
+                        <br>
+
+                        <a
+                            href="{% url 'run_annotation' genome.id %}"
+                            class="btn btn-sm btn-primary">
+
+                            🧬 Run Annotation
+
+                        </a>
+
+                    </td>
+
+                </tr>
+
+            {% endfor %}
+
+            </tbody>
+
+        </table>
+
+        {% else %}
+
+        <div class="alert alert-warning">
+
+            No genome uploaded yet.
 
         </div>
+
+        {% endif %}
 
     </div>
 
-    <!-- AI Assistant -->
+</div>
 
-    <div class="col-md-4">
+<div class="card shadow">
 
-        <div class="card shadow-sm h-100">
+    <div class="card-body">
 
-            <div class="card-body">
+        <h3>🧬 Analysis History</h3>
 
-                <h4>🤖 AI Assistant</h4>
+        <hr>
 
-                <p>
-                    Get AI-powered biological insights and explanations.
-                </p>
+        {% if analyses %}
 
-                <button class="btn btn-secondary w-100" disabled>
+        <table class="table table-hover align-middle">
 
-                    Coming Soon
+            <thead>
 
-                </button>
+                <tr>
 
-            </div>
+                    <th>Analysis</th>
+                    <th>Genome</th>
+                    <th>Status</th>
+                    <th>Started</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+            {% for analysis in analyses %}
+
+                <tr>
+
+                    <td>
+
+                        {{ analysis.get_analysis_type_display }}
+
+                    </td>
+
+                    <td>
+
+                        {{ analysis.genome.genome_file.name|cut:"genomes/" }}
+
+                    </td>
+
+                    <td>
+
+                        {% if analysis.status == "completed" %}
+
+                            <span class="badge bg-success">
+
+                                Completed
+
+                            </span>
+
+                        {% elif analysis.status == "running" %}
+
+                            <span class="badge bg-primary">
+
+                                Running
+
+                            </span>
+
+                        {% elif analysis.status == "failed" %}
+
+                            <span class="badge bg-danger">
+
+                                Failed
+
+                            </span>
+
+                        {% else %}
+
+                            <span class="badge bg-warning text-dark">
+
+                                Pending
+
+                            </span>
+
+                        {% endif %}
+
+                    </td>
+
+                    <td>
+
+                        {{ analysis.started_at }}
+
+                    </td>
+
+                </tr>
+
+            {% endfor %}
+
+            </tbody>
+
+        </table>
+
+        {% else %}
+
+        <div class="alert alert-info">
+
+            No analysis has been started yet.
 
         </div>
 
-    </div>
-
-    <!-- Reports -->
-
-    <div class="col-md-4">
-
-        <div class="card shadow-sm h-100">
-
-            <div class="card-body">
-
-                <h4>📊 Reports</h4>
-
-                <p>
-                    Generate publication-ready research reports.
-                </p>
-
-                <button class="btn btn-secondary w-100" disabled>
-
-                    Coming Soon
-
-                </button>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    <!-- Project Status -->
-
-    <div class="col-md-4">
-
-        <div class="card shadow-sm h-100">
-
-            <div class="card-body">
-
-                <h4>⚙️ Project Status</h4>
-
-                <p>
-
-                    Genome Upload:
-                    <span class="badge bg-warning text-dark">
-
-                        Pending
-
-                    </span>
-
-                </p>
-
-                <p>
-
-                    Analysis:
-                    <span class="badge bg-secondary">
-
-                        Not Started
-
-                    </span>
-
-                </p>
-
-            </div>
-
-        </div>
+        {% endif %}
 
     </div>
 

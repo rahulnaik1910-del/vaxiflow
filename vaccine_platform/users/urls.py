@@ -2,7 +2,11 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path("", views.home, name="home"),
+    path(
+        "",
+        views.home,
+        name="home",
+    ),
 
     path(
         "projects/create/",
@@ -20,5 +24,17 @@ urlpatterns = [
         "projects/<int:project_id>/upload/",
         views.upload_genome,
         name="upload_genome",
+    ),
+
+    path(
+        "genome/<int:genome_id>/download/",
+        views.download_genome,
+        name="download_genome",
+    ),
+
+    path(
+        "genome/<int:genome_id>/annotate/",
+        views.run_annotation,
+        name="run_annotation",
     ),
 ]
