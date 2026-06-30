@@ -86,6 +86,11 @@ class Analysis(models.Model):
         blank=True,
     )
 
+    exit_code = models.IntegerField(
+        null=True,
+        blank=True,
+    )
+
     started_at = models.DateTimeField(
         auto_now_add=True,
     )
@@ -96,5 +101,8 @@ class Analysis(models.Model):
     )
 
     def __str__(self):
-        return f"{self.project.project_name} - {self.analysis_type}"
+        return (
+            f"{self.project.project_name} - "
+            f"{self.get_analysis_type_display()}"
+        )
     

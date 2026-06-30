@@ -2,8 +2,10 @@ from pathlib import Path
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import FileResponse
+from django.contrib import messages
 
 from .models import Project, Genome, Analysis
+from services.analysis.service import AnalysisService
 
 
 ALLOWED_EXTENSIONS = [
@@ -141,12 +143,28 @@ def run_annotation(request, genome_id):
         id=genome_id
     )
 
-    Analysis.objects.create(
+    analysis = Analysis.objects.create(
         project=genome.project,
         genome=genome,
         analysis_type="annotation",
         status="pending",
     )
+
+    try:
+
+        AnalysisService.run_annotation(analysis)
+
+        messages.success(
+            request,
+            "Genome annotation completed successfully."
+        )
+
+    except Exception as error:
+
+        messages.error(
+            request,
+            f"Annotation failed: {error}"
+        )
 
     return redirect(
         "project_detail",

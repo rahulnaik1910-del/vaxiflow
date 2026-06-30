@@ -1,85 +1,70 @@
 import subprocess
-import shutil
 from pathlib import Path
 
 
 class ProkkaRunner:
     """
-    Handles execution of Prokka.
+    Execute Prokka through WSL.
     """
 
-    def __init__(self):
+    def __init__(self, analysis):
 
-        self.prokka_path = shutil.which("prokka")
+        self.analysis = analysis
+        self.genome = analysis.genome
 
-    def is_installed(self):
-        """
-        Check whether Prokka is installed.
-        """
+    def windows_to_wsl(self, path: Path):
 
-        return self.prokka_path is not None
+        windows_path = str(path.resolve())
 
-    def get_version(self):
-        """
-        Return installed Prokka version.
-        """
+        drive = windows_path[0].lower()
 
-        if not self.is_installed():
+        remaining = windows_path[2:].replace("\\", "/")
 
-            return None
+        return f"/mnt/{drive}{remaining}"
+
+    def run(self):
+
+        output_dir = (
+            Path("media")
+            / "annotations"
+            / f"analysis_{self.analysis.id}"
+        )
+
+        output_dir.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        genome_path = self.windows_to_wsl(
+            Path(self.genome.genome_file.path)
+        )
+
+        output_path = self.windows_to_wsl(
+            output_dir.resolve()
+        )
+
+        command = [
+            "wsl",
+            "prokka",
+            "--force",
+            "--outdir",
+            output_path,
+            "--prefix",
+            "annotation",
+            genome_path,
+        ]
 
         result = subprocess.run(
-            ["prokka", "--version"],
+            command,
             capture_output=True,
             text=True,
         )
 
-        return result.stdout.strip()
-
-    def run_annotation(
-        self,
-        genome_file,
-        output_directory,
-        prefix,
-    ):
-        """
-        Run Prokka annotation.
-        """
-
-        if not self.is_installed():
-
-            return {
-                "success": False,
-                "message": "Prokka is not installed.",
-            }
-
-        command = [
-            "prokka",
-            genome_file,
-            "--outdir",
-            output_directory,
-            "--prefix",
-            prefix,
-        ]
-
-        try:
-
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-            )
-
-            return {
-                "success": result.returncode == 0,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-            }
-
-        except Exception as e:
-
-            return {
-                "success": False,
-                "message": str(e),
-            }
-        
+        return {
+            "success": result.returncode == 0,
+            "return_code": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "output_directory": str(output_dir),
+        }
+    
