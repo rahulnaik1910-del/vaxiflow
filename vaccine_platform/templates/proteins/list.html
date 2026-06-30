@@ -28,7 +28,7 @@
 
 <div class="row mb-4">
 
-    <div class="col-md-4">
+    <div class="col-md-3">
 
         <div class="card shadow-sm">
 
@@ -42,7 +42,7 @@
 
                 <h2>
 
-                    {{ proteins|length }}
+                    {{ total_proteins }}
 
                 </h2>
 
@@ -52,7 +52,7 @@
 
     </div>
 
-    <div class="col-md-8">
+    <div class="col-md-9">
 
         <div class="card shadow-sm">
 
@@ -60,34 +60,64 @@
 
                 <form method="get">
 
-                    <div class="input-group">
+                    <div class="row g-2">
 
-                        <input
-                            type="text"
-                            class="form-control"
-                            name="search"
-                            value="{{ search }}"
-                            placeholder="Search by Protein ID, Gene or Product">
+                        <div class="col-md-6">
 
-                        <button
-                            class="btn btn-primary"
-                            type="submit">
+                            <input
+                                type="text"
+                                class="form-control"
+                                name="search"
+                                value="{{ search }}"
+                                placeholder="Search Protein ID, Gene or Product">
 
-                            🔍 Search
+                        </div>
 
-                        </button>
+                        <div class="col-md-3">
 
-                        {% if search %}
+                            <select
+                                name="sort"
+                                class="form-select">
 
-                        <a
-                            href="{% url 'protein_list' analysis.id %}"
-                            class="btn btn-outline-secondary">
+                                <option value="protein_id"
+                                    {% if sort == "protein_id" %}selected{% endif %}>
 
-                            Clear
+                                    Protein ID
 
-                        </a>
+                                </option>
 
-                        {% endif %}
+                                <option value="length"
+                                    {% if sort == "length" %}selected{% endif %}>
+
+                                    Length ↑
+
+                                </option>
+
+                                <option value="-length"
+                                    {% if sort == "-length" %}selected{% endif %}>
+
+                                    Length ↓
+
+                                </option>
+
+                            </select>
+
+                        </div>
+
+                        <div class="col-md-3">
+
+                            <div class="d-grid">
+
+                                <button
+                                    class="btn btn-primary">
+
+                                    Apply
+
+                                </button>
+
+                            </div>
+
+                        </div>
 
                     </div>
 
@@ -105,11 +135,22 @@
 
     <div class="card-body">
 
-        <h3>
+        <div class="d-flex justify-content-between align-items-center">
 
-            Protein List
+            <h3>
 
-        </h3>
+                Protein List
+
+            </h3>
+
+            <span class="text-muted">
+
+                Showing {{ page_obj.start_index }}–{{ page_obj.end_index }}
+                of {{ total_proteins }} proteins
+
+            </span>
+
+        </div>
 
         <hr>
 
@@ -117,7 +158,7 @@
 
         <table class="table table-hover align-middle">
 
-            <thead>
+            <thead class="table-light">
 
                 <tr>
 
@@ -125,7 +166,7 @@
                     <th>Gene</th>
                     <th>Product</th>
                     <th>Length</th>
-                    <th>Action</th>
+                    <th></th>
 
                 </tr>
 
@@ -173,7 +214,7 @@
 
                         <a
                             href="{% url 'protein_detail' protein.id %}"
-                            class="btn btn-sm btn-primary">
+                            class="btn btn-sm btn-outline-primary">
 
                             View Details
 
@@ -189,11 +230,83 @@
 
         </table>
 
+        <nav>
+
+            <ul class="pagination justify-content-center">
+
+                {% if page_obj.has_previous %}
+
+                <li class="page-item">
+
+                    <a
+                        class="page-link"
+                        href="?page={{ page_obj.previous_page_number }}&search={{ search }}&sort={{ sort }}">
+
+                        Previous
+
+                    </a>
+
+                </li>
+
+                {% endif %}
+
+                {% for page in page_obj.paginator.page_range %}
+
+                    {% if page == page_obj.number %}
+
+                        <li class="page-item active">
+
+                            <span class="page-link">
+
+                                {{ page }}
+
+                            </span>
+
+                        </li>
+
+                    {% else %}
+
+                        <li class="page-item">
+
+                            <a
+                                class="page-link"
+                                href="?page={{ page }}&search={{ search }}&sort={{ sort }}">
+
+                                {{ page }}
+
+                            </a>
+
+                        </li>
+
+                    {% endif %}
+
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+
+                <li class="page-item">
+
+                    <a
+                        class="page-link"
+                        href="?page={{ page_obj.next_page_number }}&search={{ search }}&sort={{ sort }}">
+
+                        Next
+
+                    </a>
+
+                </li>
+
+                {% endif %}
+
+            </ul>
+
+        </nav>
+
         {% else %}
 
         <div class="alert alert-warning">
 
-            No proteins found matching your search.
+            No proteins found.
 
         </div>
 
