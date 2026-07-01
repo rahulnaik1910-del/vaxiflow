@@ -15,7 +15,9 @@
     </div>
 
     <a href="/" class="btn btn-secondary">
+
         ← Back to Dashboard
+
     </a>
 
 </div>
@@ -35,8 +37,11 @@
             <div class="col-md-6">
 
                 <p>
+
                     <strong>🦠 Organism</strong><br>
+
                     {{ project.organism }}
+
                 </p>
 
             </div>
@@ -44,8 +49,11 @@
             <div class="col-md-6">
 
                 <p>
+
                     <strong>📅 Created</strong><br>
+
                     {{ project.created_at }}
+
                 </p>
 
             </div>
@@ -53,11 +61,15 @@
         </div>
 
         <p>
+
             <strong>📝 Description</strong>
+
         </p>
 
         <div class="alert alert-light">
+
             {{ project.description|default:"No description provided." }}
+
         </div>
 
     </div>
@@ -72,7 +84,7 @@
 
 <div class="row g-4 mb-5">
 
-    <div class="col-md-4">
+    <div class="col-md-3">
 
         <div class="card shadow-sm h-100">
 
@@ -100,7 +112,7 @@
 
     </div>
 
-    <div class="col-md-4">
+    <div class="col-md-3">
 
         <div class="card shadow-sm h-100">
 
@@ -128,17 +140,45 @@
 
     </div>
 
-    <div class="col-md-4">
+    <div class="col-md-3">
 
         <div class="card shadow-sm h-100">
 
             <div class="card-body">
 
-                <h5>🧪 Reverse Vaccinology</h5>
+                <h5>🧪 Analysis Center</h5>
 
                 <p>
 
-                    Vaccine candidate identification.
+                    Manage all reverse vaccinology modules.
+
+                </p>
+
+                <a
+                    href="{% url 'analysis_dashboard' project.id %}"
+                    class="btn btn-success w-100">
+
+                    Open Analysis Center
+
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-3">
+
+        <div class="card shadow-sm h-100">
+
+            <div class="card-body">
+
+                <h5>🤖 AI Ranking</h5>
+
+                <p>
+
+                    Rank final vaccine candidates.
 
                 </p>
 

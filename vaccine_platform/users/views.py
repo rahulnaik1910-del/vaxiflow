@@ -5,6 +5,7 @@ from django.http import FileResponse
 from django.contrib import messages
 
 from .models import Project, Genome, Analysis
+from proteins.models import Protein
 from services.analysis.service import AnalysisService
 
 
@@ -20,15 +21,75 @@ ALLOWED_EXTENSIONS = [
 
 
 def home(request):
+    """
+    VaxiFlow Dashboard
+    """
 
     projects = Project.objects.all().order_by("-created_at")
+
+    total_projects = Project.objects.count()
+
+    total_genomes = Genome.objects.count()
+
+    total_analyses = Analysis.objects.count()
+
+    total_proteins = Protein.objects.count()
+
+    recent_projects = Project.objects.all().order_by(
+        "-created_at"
+    )[:5]
+
+    pipeline = [
+        {
+            "name": "Genome Upload",
+            "status": "completed",
+        },
+        {
+            "name": "Genome Annotation",
+            "status": "completed",
+        },
+        {
+            "name": "Protein Import",
+            "status": "completed",
+        },
+        {
+            "name": "SignalP",
+            "status": "waiting",
+        },
+        {
+            "name": "TMHMM",
+            "status": "waiting",
+        },
+        {
+            "name": "PSORTb",
+            "status": "waiting",
+        },
+        {
+            "name": "BLAST",
+            "status": "waiting",
+        },
+        {
+            "name": "VaxiJen",
+            "status": "waiting",
+        },
+        {
+            "name": "AI Ranking",
+            "status": "waiting",
+        },
+    ]
 
     return render(
         request,
         "dashboard/home.html",
         {
-            "projects": projects
-        }
+            "projects": projects,
+            "recent_projects": recent_projects,
+            "total_projects": total_projects,
+            "total_genomes": total_genomes,
+            "total_analyses": total_analyses,
+            "total_proteins": total_proteins,
+            "pipeline": pipeline,
+        },
     )
 
 
@@ -46,7 +107,7 @@ def create_project(request):
 
     return render(
         request,
-        "projects/create.html"
+        "projects/create.html",
     )
 
 
@@ -54,15 +115,15 @@ def project_detail(request, project_id):
 
     project = get_object_or_404(
         Project,
-        id=project_id
+        id=project_id,
     )
 
     genomes = Genome.objects.filter(
-        project=project
+        project=project,
     ).order_by("-uploaded_at")
 
     analyses = Analysis.objects.filter(
-        project=project
+        project=project,
     ).order_by("-started_at")
 
     return render(
@@ -72,7 +133,7 @@ def project_detail(request, project_id):
             "project": project,
             "genomes": genomes,
             "analyses": analyses,
-        }
+        },
     )
 
 
@@ -80,18 +141,22 @@ def upload_genome(request, project_id):
 
     project = get_object_or_404(
         Project,
-        id=project_id
+        id=project_id,
     )
 
     error = None
 
     if request.method == "POST":
 
-        uploaded_file = request.FILES.get("genome_file")
+        uploaded_file = request.FILES.get(
+            "genome_file"
+        )
 
         if uploaded_file:
 
-            extension = Path(uploaded_file.name).suffix.lower()
+            extension = Path(
+                uploaded_file.name
+            ).suffix.lower()
 
             if extension not in ALLOWED_EXTENSIONS:
 
@@ -109,7 +174,7 @@ def upload_genome(request, project_id):
 
                 return redirect(
                     "project_detail",
-                    project_id=project.id
+                    project_id=project.id,
                 )
 
     return render(
@@ -118,7 +183,7 @@ def upload_genome(request, project_id):
         {
             "project": project,
             "error": error,
-        }
+        },
     )
 
 
@@ -126,7 +191,7 @@ def download_genome(request, genome_id):
 
     genome = get_object_or_404(
         Genome,
-        id=genome_id
+        id=genome_id,
     )
 
     return FileResponse(
@@ -140,7 +205,7 @@ def run_annotation(request, genome_id):
 
     genome = get_object_or_404(
         Genome,
-        id=genome_id
+        id=genome_id,
     )
 
     analysis = Analysis.objects.create(
@@ -152,18 +217,20 @@ def run_annotation(request, genome_id):
 
     try:
 
-        AnalysisService.run_annotation(analysis)
+        AnalysisService.run_annotation(
+            analysis
+        )
 
         messages.success(
             request,
-            "Genome annotation completed successfully."
+            "Genome annotation completed successfully.",
         )
 
     except Exception as error:
 
         messages.error(
             request,
-            f"Annotation failed: {error}"
+            f"Annotation failed: {error}",
         )
 
     return redirect(
