@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-5">
+
+    <div class="card shadow border-danger">
+
+        <div class="card-body">
+
+            <h1 class="text-danger">
+
+                ❌ SignalP Execution Failed
+
+            </h1>
+
+            <hr>
+
+            <p>
+
+                <strong>Analysis ID:</strong>
+
+                {{ analysis.id }}
+
+            </p>
+
+            <p>
+
+                <strong>Error Message:</strong>
+
+            </p>
+
+            <div class="alert alert-danger">
+
+                {{ error }}
+
+            </div>
+
+            <a
+                href="{% url 'analysis_dashboard' analysis.project.id %}"
+                class="btn btn-primary">
+
+                ← Return to Analysis Center
+
+            </a>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

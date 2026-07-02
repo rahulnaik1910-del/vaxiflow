@@ -3,7 +3,6 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
-
 urlpatterns = [
 
     path(
@@ -17,12 +16,16 @@ urlpatterns = [
     ),
 
     path(
-        "proteins/",
-        include("proteins.urls"),
+        "analysis/",
+        include("analysis_center.urls"),
+    ),
+
+    path(
+        "signalp/",
+        include("signalp.urls"),
     ),
 
 ]
-
 
 if settings.DEBUG:
 
