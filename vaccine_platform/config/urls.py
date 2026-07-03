@@ -21,14 +21,23 @@ urlpatterns = [
     ),
 
     path(
+        "proteins/",
+        include("proteins.urls"),
+    ),
+
+    path(
         "signalp/",
         include("signalp.urls"),
+    ),
+
+    path(
+        "blast/",
+        include("blast.urls"),
     ),
 
 ]
 
 if settings.DEBUG:
-
     urlpatterns += static(
         settings.MEDIA_URL,
         document_root=settings.MEDIA_ROOT,

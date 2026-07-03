@@ -4,7 +4,7 @@ from pathlib import Path
 
 class ProkkaRunner:
     """
-    Execute Prokka through WSL.
+    Execute Prokka directly inside WSL.
     """
 
     def __init__(self, analysis):
@@ -12,59 +12,91 @@ class ProkkaRunner:
         self.analysis = analysis
         self.genome = analysis.genome
 
-    def windows_to_wsl(self, path: Path):
-
-        windows_path = str(path.resolve())
-
-        drive = windows_path[0].lower()
-
-        remaining = windows_path[2:].replace("\\", "/")
-
-        return f"/mnt/{drive}{remaining}"
-
     def run(self):
 
-        output_dir = (
-            Path("media")
-            / "annotations"
-            / f"analysis_{self.analysis.id}"
-        )
+        try:
 
-        output_dir.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
+            print("\n==============================")
+            print("PROKKA RUNNER STARTED")
+            print("==============================")
 
-        genome_path = self.windows_to_wsl(
-            Path(self.genome.genome_file.path)
-        )
+            print("A - Creating output directory object")
 
-        output_path = self.windows_to_wsl(
-            output_dir.resolve()
-        )
+            output_dir = (
+                Path("media")
+                / "annotations"
+                / f"analysis_{self.analysis.id}"
+            )
 
-        command = [
-            "wsl",
-            "prokka",
-            "--force",
-            "--outdir",
-            output_path,
-            "--prefix",
-            "annotation",
-            genome_path,
-        ]
+            print("B - Output directory object created")
 
-        result = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-        )
+            output_dir.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
 
-        return {
-            "success": result.returncode == 0,
-            "return_code": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "output_directory": str(output_dir),
-        }
-    
+            print("C - Output directory created")
+
+            print("Output Directory:")
+            print(output_dir.resolve())
+
+            genome_path = Path(
+                self.genome.genome_file.path
+            ).resolve()
+
+            print("D - Genome path resolved")
+
+            print("Genome File:")
+            print(genome_path)
+
+            command = [
+                "prokka",
+                "--force",
+                "--outdir",
+                str(output_dir.resolve()),
+                "--prefix",
+                "annotation",
+                str(genome_path),
+            ]
+
+            print("E - Command prepared")
+
+            print("\nRunning Command:\n")
+            print(" ".join(command))
+            print()
+
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            print("F - Prokka finished")
+
+            print("Return Code:", result.returncode)
+
+            print("\n========== STDOUT ==========")
+            print(result.stdout)
+
+            print("\n========== STDERR ==========")
+            print(result.stderr)
+
+            return {
+                "success": result.returncode == 0,
+                "return_code": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "output_directory": str(output_dir),
+            }
+
+        except Exception as error:
+
+            print("\n====================================")
+            print("EXCEPTION INSIDE PROKKA RUNNER")
+            print("====================================")
+            print(type(error))
+            print(error)
+
+            raise
+        

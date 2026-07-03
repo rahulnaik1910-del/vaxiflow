@@ -28,11 +28,8 @@ def home(request):
     projects = Project.objects.all().order_by("-created_at")
 
     total_projects = Project.objects.count()
-
     total_genomes = Genome.objects.count()
-
     total_analyses = Analysis.objects.count()
-
     total_proteins = Protein.objects.count()
 
     recent_projects = Project.objects.all().order_by(
@@ -40,42 +37,15 @@ def home(request):
     )[:5]
 
     pipeline = [
-        {
-            "name": "Genome Upload",
-            "status": "completed",
-        },
-        {
-            "name": "Genome Annotation",
-            "status": "completed",
-        },
-        {
-            "name": "Protein Import",
-            "status": "completed",
-        },
-        {
-            "name": "SignalP",
-            "status": "waiting",
-        },
-        {
-            "name": "TMHMM",
-            "status": "waiting",
-        },
-        {
-            "name": "PSORTb",
-            "status": "waiting",
-        },
-        {
-            "name": "BLAST",
-            "status": "waiting",
-        },
-        {
-            "name": "VaxiJen",
-            "status": "waiting",
-        },
-        {
-            "name": "AI Ranking",
-            "status": "waiting",
-        },
+        {"name": "Genome Upload", "status": "completed"},
+        {"name": "Genome Annotation", "status": "completed"},
+        {"name": "Protein Import", "status": "completed"},
+        {"name": "SignalP", "status": "waiting"},
+        {"name": "TMHMM", "status": "waiting"},
+        {"name": "PSORTb", "status": "waiting"},
+        {"name": "BLAST", "status": "waiting"},
+        {"name": "VaxiJen", "status": "waiting"},
+        {"name": "AI Ranking", "status": "waiting"},
     ]
 
     return render(
@@ -203,10 +173,17 @@ def download_genome(request, genome_id):
 
 def run_annotation(request, genome_id):
 
+    print("\n===================================")
+    print("RUN ANNOTATION VIEW REACHED")
+    print("Genome ID:", genome_id)
+    print("===================================\n")
+
     genome = get_object_or_404(
         Genome,
         id=genome_id,
     )
+
+    print("Genome loaded:", genome)
 
     analysis = Analysis.objects.create(
         project=genome.project,
@@ -215,11 +192,17 @@ def run_annotation(request, genome_id):
         status="pending",
     )
 
+    print("Analysis created:", analysis.id)
+
     try:
+
+        print("Calling AnalysisService...")
 
         AnalysisService.run_annotation(
             analysis
         )
+
+        print("AnalysisService finished.")
 
         messages.success(
             request,
@@ -227,6 +210,10 @@ def run_annotation(request, genome_id):
         )
 
     except Exception as error:
+
+        print("\nERROR OCCURRED")
+        print(error)
+        print()
 
         messages.error(
             request,

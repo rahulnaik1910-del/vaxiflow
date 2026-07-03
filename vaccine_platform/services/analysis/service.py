@@ -5,52 +5,69 @@ from services.protein.importer import ProteinImporter
 
 
 class AnalysisService:
-    """
-    Executes analysis workflows.
-    """
 
     @staticmethod
     def run_annotation(analysis):
 
-        analysis.status = "running"
-        analysis.save()
+        try:
 
-        runner = ProkkaRunner(analysis)
+            print("STEP 1")
 
-        result = runner.run()
+            analysis.status = "running"
 
-        analysis.output_directory = result["output_directory"]
+            print("STEP 1A")
 
-        analysis.exit_code = result["return_code"]
+            analysis.save()
 
-        analysis.log = (
-            "STDOUT\n"
-            "-------------------------\n"
-            f"{result['stdout']}\n\n"
-            "STDERR\n"
-            "-------------------------\n"
-            f"{result['stderr']}"
-        )
+            print("STEP 1B")
 
-        analysis.completed_at = timezone.now()
+            runner = ProkkaRunner(analysis)
 
-        if result["success"]:
+            print("STEP 2")
 
-            analysis.status = "completed"
+            result = runner.run()
 
-            importer = ProteinImporter(analysis)
+            print("STEP 3")
 
-            protein_count = importer.import_proteins()
+            analysis.output_directory = result["output_directory"]
+            analysis.exit_code = result["return_code"]
 
-            analysis.log += (
-                f"\n\nImported Proteins: {protein_count}"
+            analysis.log = (
+                f"STDOUT\n{result['stdout']}\n\n"
+                f"STDERR\n{result['stderr']}"
             )
 
-        else:
+            analysis.completed_at = timezone.now()
 
-            analysis.status = "failed"
+            if result["success"]:
 
-        analysis.save()
+                print("STEP 4")
 
-        return analysis
-    
+                analysis.status = "completed"
+
+                importer = ProteinImporter(analysis)
+
+                protein_count = importer.import_proteins()
+
+                print(f"Imported {protein_count}")
+
+            else:
+
+                print("STEP 5")
+
+                analysis.status = "failed"
+
+            analysis.save()
+
+            print("STEP 6")
+
+            return analysis
+
+        except Exception as e:
+
+            print("EXCEPTION OCCURRED")
+            print(type(e))
+            print(e)
+
+            raise
+        

@@ -39,51 +39,33 @@
                 <hr>
 
                 <p>
-
                     <strong>Protein ID</strong><br>
-
                     {{ protein.protein_id }}
-
                 </p>
 
                 <p>
-
                     <strong>Gene</strong><br>
-
                     {{ protein.gene|default:"Not Available" }}
-
                 </p>
 
                 <p>
-
                     <strong>Product</strong><br>
-
                     {{ protein.product }}
-
                 </p>
 
                 <p>
-
                     <strong>Length</strong><br>
-
                     {{ protein.length }} amino acids
-
                 </p>
 
                 <p>
-
                     <strong>Project</strong><br>
-
                     {{ protein.analysis.project.project_name }}
-
                 </p>
 
                 <p>
-
                     <strong>Analysis</strong><br>
-
                     {{ protein.analysis.get_analysis_type_display }}
-
                 </p>
 
             </div>
@@ -94,38 +76,53 @@
 
             <div class="card-body">
 
-                <h4>Prediction Modules</h4>
+                <h4>Analysis Modules</h4>
 
                 <hr>
 
-                <table class="table">
+                <div class="d-grid gap-3">
 
-                    <tr>
-                        <td>🧪 SignalP</td>
-                        <td><span class="badge bg-secondary">Coming Soon</span></td>
-                    </tr>
+                    <a
+                        href="{% url 'run_blast' protein.id %}"
+                        class="btn btn-primary">
 
-                    <tr>
-                        <td>🧬 TMHMM</td>
-                        <td><span class="badge bg-secondary">Coming Soon</span></td>
-                    </tr>
+                        🔍 Run BLAST
 
-                    <tr>
-                        <td>📍 PSORTb</td>
-                        <td><span class="badge bg-secondary">Coming Soon</span></td>
-                    </tr>
+                    </a>
 
-                    <tr>
-                        <td>🔍 BLAST</td>
-                        <td><span class="badge bg-secondary">Coming Soon</span></td>
-                    </tr>
+                    <button
+                        class="btn btn-outline-secondary"
+                        disabled>
 
-                    <tr>
-                        <td>💉 VaxiJen</td>
-                        <td><span class="badge bg-secondary">Coming Soon</span></td>
-                    </tr>
+                        🧪 SignalP (Coming Soon)
 
-                </table>
+                    </button>
+
+                    <button
+                        class="btn btn-outline-secondary"
+                        disabled>
+
+                        🧬 TMHMM (Coming Soon)
+
+                    </button>
+
+                    <button
+                        class="btn btn-outline-secondary"
+                        disabled>
+
+                        📍 PSORTb (Coming Soon)
+
+                    </button>
+
+                    <button
+                        class="btn btn-outline-secondary"
+                        disabled>
+
+                        💉 VaxiJen (Coming Soon)
+
+                    </button>
+
+                </div>
 
             </div>
 

@@ -43,6 +43,12 @@ INSTALLED_APPS = [
     'proteins',
     'signalp',
     'analysis_center',
+
+    'blast',
+    'django_extensions',
+    
+
+
     
 
 ]
@@ -163,9 +169,26 @@ MEDIA_URL = "/media/"
 
 MEDIA_ROOT = BASE_DIR / "media"
 
+# ==========================================
+# BLAST Configuration
+# ==========================================
+
+BLAST_DATABASES = {
+
+    "human_swissprot": BASE_DIR
+    / "blast_data"
+    / "human"
+    / "swissprot"
+    / "human_proteome",
+
+}
+
+BLAST_OUTPUT_DIRECTORY = BASE_DIR / "media" / "blast"
+
 
 # -----------------------------------------------------------------------------
 # Default Primary Key
 # -----------------------------------------------------------------------------
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
