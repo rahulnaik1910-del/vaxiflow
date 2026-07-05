@@ -155,6 +155,14 @@
                 </p>
 
                 <a
+                    href="{% url 'start_workflow' project.id %}"
+                    class="btn btn-warning w-100 mb-2">
+
+                    ▶ Start Analysis
+
+                </a>
+
+                <a
                     href="{% url 'analysis_dashboard' project.id %}"
                     class="btn btn-success w-100">
 

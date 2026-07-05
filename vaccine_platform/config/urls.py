@@ -35,6 +35,11 @@ urlpatterns = [
         include("blast.urls"),
     ),
 
+    path(
+        "pipeline/",
+        include("pipeline.urls"),
+    ),
+
 ]
 
 if settings.DEBUG:
