@@ -46,6 +46,8 @@ INSTALLED_APPS = [
 
     'blast',
     'django_extensions',
+    'pipeline',
+    
     
 
 
