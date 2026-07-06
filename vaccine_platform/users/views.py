@@ -6,6 +6,7 @@ from django.contrib import messages
 
 from .models import Project, Genome, Analysis
 from proteins.models import Protein
+from pipeline.models import WorkflowRun
 from services.analysis.service import AnalysisService
 
 
@@ -96,6 +97,27 @@ def project_detail(request, project_id):
         project=project,
     ).order_by("-started_at")
 
+    workflow_run = (
+        WorkflowRun.objects.filter(
+            project=project,
+        )
+        .order_by("-started_at")
+        .first()
+    )
+
+    workflow_tasks = []
+
+    if workflow_run:
+
+        workflow_tasks = (
+            workflow_run.tasks.select_related(
+                "stage"
+            )
+            .order_by(
+                "stage__order"
+            )
+        )
+
     return render(
         request,
         "projects/detail.html",
@@ -103,6 +125,8 @@ def project_detail(request, project_id):
             "project": project,
             "genomes": genomes,
             "analyses": analyses,
+            "workflow_run": workflow_run,
+            "workflow_tasks": workflow_tasks,
         },
     )
 

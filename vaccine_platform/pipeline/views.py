@@ -1,6 +1,8 @@
 from django.contrib import messages
-from django.shortcuts import get_object_or_404
-from django.shortcuts import redirect
+from django.shortcuts import (
+    get_object_or_404,
+    redirect,
+)
 
 from users.models import Project
 
@@ -11,6 +13,10 @@ from pipeline.models import (
 
 from pipeline.services.task_manager import (
     TaskManager,
+)
+
+from pipeline.services.runner import (
+    PipelineRunner,
 )
 
 
@@ -37,9 +43,13 @@ def start_workflow(request, project_id):
         workflow_run
     )
 
+    PipelineRunner.run(
+        workflow_run
+    )
+
     messages.success(
         request,
-        "Workflow started successfully."
+        "Workflow executed successfully."
     )
 
     return redirect(
