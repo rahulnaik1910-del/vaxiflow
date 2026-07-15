@@ -1,24 +1,26 @@
 from pathlib import Path
 
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import (
+    render,
+    redirect,
+    get_object_or_404,
+)
 from django.http import FileResponse
 from django.contrib import messages
 
-from .models import Project, Genome, Analysis
+from .models import (
+    Project,
+    Genome,
+    Analysis,
+)
+from .validators import (
+    ALLOWED_GENOME_EXTENSIONS,
+    validate_nucleotide_fasta,
+)
+
 from proteins.models import Protein
 from pipeline.models import WorkflowRun
 from services.analysis.service import AnalysisService
-
-
-ALLOWED_EXTENSIONS = [
-    ".fna",
-    ".fasta",
-    ".fa",
-    ".faa",
-    ".gff",
-    ".gbk",
-    ".gbff",
-]
 
 
 def home(request):
@@ -26,27 +28,57 @@ def home(request):
     VaxiFlow Dashboard
     """
 
-    projects = Project.objects.all().order_by("-created_at")
+    projects = Project.objects.all().order_by(
+        "-created_at"
+    )
 
     total_projects = Project.objects.count()
     total_genomes = Genome.objects.count()
     total_analyses = Analysis.objects.count()
     total_proteins = Protein.objects.count()
 
-    recent_projects = Project.objects.all().order_by(
-        "-created_at"
-    )[:5]
+    recent_projects = (
+        Project.objects.all()
+        .order_by("-created_at")[:5]
+    )
 
     pipeline = [
-        {"name": "Genome Upload", "status": "completed"},
-        {"name": "Genome Annotation", "status": "completed"},
-        {"name": "Protein Import", "status": "completed"},
-        {"name": "SignalP", "status": "waiting"},
-        {"name": "TMHMM", "status": "waiting"},
-        {"name": "PSORTb", "status": "waiting"},
-        {"name": "BLAST", "status": "waiting"},
-        {"name": "VaxiJen", "status": "waiting"},
-        {"name": "AI Ranking", "status": "waiting"},
+        {
+            "name": "Genome Upload",
+            "status": "completed",
+        },
+        {
+            "name": "Genome Annotation",
+            "status": "completed",
+        },
+        {
+            "name": "Protein Import",
+            "status": "completed",
+        },
+        {
+            "name": "SignalP",
+            "status": "waiting",
+        },
+        {
+            "name": "TMHMM",
+            "status": "waiting",
+        },
+        {
+            "name": "PSORTb",
+            "status": "waiting",
+        },
+        {
+            "name": "BLAST",
+            "status": "waiting",
+        },
+        {
+            "name": "VaxiJen",
+            "status": "waiting",
+        },
+        {
+            "name": "AI Ranking",
+            "status": "waiting",
+        },
     ]
 
     return render(
@@ -69,9 +101,15 @@ def create_project(request):
     if request.method == "POST":
 
         Project.objects.create(
-            project_name=request.POST.get("project_name"),
-            organism=request.POST.get("organism"),
-            description=request.POST.get("description"),
+            project_name=request.POST.get(
+                "project_name"
+            ),
+            organism=request.POST.get(
+                "organism"
+            ),
+            description=request.POST.get(
+                "description"
+            ),
         )
 
         return redirect("/")
@@ -89,13 +127,19 @@ def project_detail(request, project_id):
         id=project_id,
     )
 
-    genomes = Genome.objects.filter(
-        project=project,
-    ).order_by("-uploaded_at")
+    genomes = (
+        Genome.objects.filter(
+            project=project,
+        )
+        .order_by("-uploaded_at")
+    )
 
-    analyses = Analysis.objects.filter(
-        project=project,
-    ).order_by("-started_at")
+    analyses = (
+        Analysis.objects.filter(
+            project=project,
+        )
+        .order_by("-started_at")
+    )
 
     workflow_run = (
         WorkflowRun.objects.filter(
@@ -132,6 +176,12 @@ def project_detail(request, project_id):
 
 
 def upload_genome(request, project_id):
+    """
+    Upload and validate a nucleotide genome FASTA file.
+
+    Only .fasta, .fa, and .fna files containing
+    nucleotide sequences are accepted.
+    """
 
     project = get_object_or_404(
         Project,
@@ -146,30 +196,68 @@ def upload_genome(request, project_id):
             "genome_file"
         )
 
-        if uploaded_file:
+        if not uploaded_file:
+
+            error = (
+                "Please select a genome file."
+            )
+
+        else:
 
             extension = Path(
                 uploaded_file.name
             ).suffix.lower()
 
-            if extension not in ALLOWED_EXTENSIONS:
+            if (
+                extension
+                not in ALLOWED_GENOME_EXTENSIONS
+            ):
 
                 error = (
-                    "Only FASTA, FNA, FA, FAA, "
-                    "GFF, GBK and GBFF files are allowed."
+                    "Only nucleotide genome FASTA "
+                    "files (.fasta, .fa, .fna) "
+                    "are allowed."
                 )
 
             else:
 
-                Genome.objects.create(
+                genome = Genome.objects.create(
                     project=project,
                     genome_file=uploaded_file,
                 )
 
-                return redirect(
-                    "project_detail",
-                    project_id=project.id,
+                is_valid, validation_message = (
+                    validate_nucleotide_fasta(
+                        genome.genome_file.path
+                    )
                 )
+
+                if not is_valid:
+
+                    # Delete the invalid physical
+                    # file from storage.
+                    genome.genome_file.delete(
+                        save=False
+                    )
+
+                    # Delete the invalid database
+                    # record.
+                    genome.delete()
+
+                    error = validation_message
+
+                else:
+
+                    messages.success(
+                        request,
+                        "Genome uploaded and "
+                        "validated successfully.",
+                    )
+
+                    return redirect(
+                        "project_detail",
+                        project_id=project.id,
+                    )
 
     return render(
         request,
@@ -191,23 +279,37 @@ def download_genome(request, genome_id):
     return FileResponse(
         genome.genome_file.open("rb"),
         as_attachment=True,
-        filename=Path(genome.genome_file.name).name,
+        filename=Path(
+            genome.genome_file.name
+        ).name,
     )
 
 
 def run_annotation(request, genome_id):
 
-    print("\n===================================")
-    print("RUN ANNOTATION VIEW REACHED")
-    print("Genome ID:", genome_id)
-    print("===================================\n")
+    print(
+        "\n==================================="
+    )
+    print(
+        "RUN ANNOTATION VIEW REACHED"
+    )
+    print(
+        "Genome ID:",
+        genome_id,
+    )
+    print(
+        "===================================\n"
+    )
 
     genome = get_object_or_404(
         Genome,
         id=genome_id,
     )
 
-    print("Genome loaded:", genome)
+    print(
+        "Genome loaded:",
+        genome,
+    )
 
     analysis = Analysis.objects.create(
         project=genome.project,
@@ -216,27 +318,39 @@ def run_annotation(request, genome_id):
         status="pending",
     )
 
-    print("Analysis created:", analysis.id)
+    print(
+        "Analysis created:",
+        analysis.id,
+    )
 
     try:
 
-        print("Calling AnalysisService...")
+        print(
+            "Calling AnalysisService..."
+        )
 
         AnalysisService.run_annotation(
             analysis
         )
 
-        print("AnalysisService finished.")
+        print(
+            "AnalysisService finished."
+        )
 
         messages.success(
             request,
-            "Genome annotation completed successfully.",
+            "Genome annotation completed "
+            "successfully.",
         )
 
     except Exception as error:
 
-        print("\nERROR OCCURRED")
-        print(error)
+        print(
+            "\nERROR OCCURRED"
+        )
+        print(
+            error
+        )
         print()
 
         messages.error(
