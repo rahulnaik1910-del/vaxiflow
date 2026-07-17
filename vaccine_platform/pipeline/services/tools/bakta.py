@@ -1,60 +1,45 @@
 import subprocess
+import time
 from pathlib import Path
 
 from django.conf import settings
 
-from users.validators import (
-    validate_nucleotide_fasta,
-)
+from users.validators import validate_nucleotide_fasta
 
 
 class BaktaExecutor:
-    """
-    Executes Bakta Light for bacterial genome annotation.
-    """
 
     BAKTA_EXECUTABLE = (
-        "/home/rahul/miniconda3/"
-        "envs/vaxiflow/bin/bakta"
+        "/home/rahul/miniconda3/envs/vaxiflow/bin/bakta"
     )
 
     BAKTA_DB = (
-        "/mnt/d/VaxiFlowData/"
-        "bakta-light/db-light"
+        "/mnt/d/VaxiFlowData/bakta-light/db-light"
     )
 
     @staticmethod
     def run(genome, workflow_run):
-        """
-        Run Bakta Light on one uploaded genome.
 
-        Returns:
-            dict containing:
-                - exit_code
-                - log
-                - output_directory
-        """
+        print("=" * 70)
+        print("BAKTA EXECUTOR STARTED")
 
-        genome_path = Path(
-            genome.genome_file.path
+        genome_path = Path(genome.genome_file.path)
+
+        print(f"Genome path : {genome_path}")
+
+        is_valid, validation_message = validate_nucleotide_fasta(
+            genome_path
         )
 
-        is_valid, validation_message = (
-            validate_nucleotide_fasta(
-                genome_path
-            )
-        )
+        print(f"Validation : {is_valid}")
 
         if not is_valid:
 
+            print("Genome validation failed")
+
             return {
                 "exit_code": 1,
-                "log": (
-                    "Bakta input validation failed.\n"
-                    f"Genome ID: {genome.id}\n"
-                    f"File: {genome_path}\n"
-                    f"Reason: {validation_message}"
-                ),
+                "log": validation_message,
                 "output_directory": "",
             }
 
@@ -71,9 +56,9 @@ class BaktaExecutor:
             exist_ok=True,
         )
 
-        prefix = (
-            f"genome_{genome.id}_annotation"
-        )
+        print(f"Output dir : {output_dir}")
+
+        prefix = f"genome_{genome.id}_annotation"
 
         command = [
             BaktaExecutor.BAKTA_EXECUTABLE,
@@ -88,6 +73,12 @@ class BaktaExecutor:
             str(genome_path),
         ]
 
+        print("Command:")
+        print(" ".join(command))
+        print("=" * 70)
+        print("Starting Bakta...")
+        start = time.time()
+
         try:
 
             result = subprocess.run(
@@ -96,38 +87,32 @@ class BaktaExecutor:
                 text=True,
             )
 
-        except OSError as exc:
+        except Exception as e:
+
+            print("Failed to launch Bakta")
+            print(repr(e))
 
             return {
                 "exit_code": 1,
-                "log": (
-                    "Failed to start Bakta.\n"
-                    f"Genome ID: {genome.id}\n"
-                    f"Input: {genome_path}\n"
-                    f"Error: {exc}"
-                ),
-                "output_directory": str(
-                    output_dir
-                ),
+                "log": str(e),
+                "output_directory": str(output_dir),
             }
 
+        elapsed = round(time.time() - start, 2)
+
+        print("=" * 70)
+        print(f"Bakta finished in {elapsed} seconds")
+        print(f"Exit code : {result.returncode}")
+        print("=" * 70)
+
         log = (
-            f"Genome ID: {genome.id}\n"
-            f"Input: {genome_path}\n"
-            f"Output: {output_dir}\n"
-            f"Validation: {validation_message}\n\n"
-            f"Command: {' '.join(command)}\n\n"
-            f"STDOUT:\n"
-            f"{result.stdout}\n\n"
-            f"STDERR:\n"
-            f"{result.stderr}"
+            f"STDOUT\n\n{result.stdout}\n\n"
+            f"STDERR\n\n{result.stderr}"
         )
 
         return {
             "exit_code": result.returncode,
             "log": log,
-            "output_directory": str(
-                output_dir
-            ),
+            "output_directory": str(output_dir),
         }
     

@@ -28,19 +28,28 @@ def analysis_dashboard(request, project_id):
         "-started_at"
     )
 
-    protein_count = Protein.objects.filter(
-        analysis__project=project,
-    ).count()
+    latest_analysis = analyses.first()
 
-    signalp_count = SignalPResult.objects.filter(
-        protein__analysis__project=project,
-    ).count()
+    protein_count = 0
+    signalp_count = 0
+
+    if latest_analysis:
+
+        protein_count = Protein.objects.filter(
+            analysis=latest_analysis,
+        ).count()
+
+        signalp_count = SignalPResult.objects.filter(
+            protein__analysis=latest_analysis,
+        ).count()
 
     context = {
 
         "project": project,
 
         "analyses": analyses,
+
+        "latest_analysis": latest_analysis,
 
         "protein_count": protein_count,
 

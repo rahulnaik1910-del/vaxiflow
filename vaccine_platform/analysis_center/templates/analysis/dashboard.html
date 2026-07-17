@@ -7,15 +7,11 @@
     <div>
 
         <h1>
-
             🧬 Analysis Center
-
         </h1>
 
         <p class="text-muted">
-
             {{ project.project_name }}
-
         </p>
 
     </div>
@@ -29,7 +25,6 @@
     </a>
 
 </div>
-
 
 
 <div class="card shadow mb-4">
@@ -112,11 +107,23 @@
 
                             <td>
 
-                                <span class="badge bg-success">
+                                {% if latest_analysis %}
 
-                                    Completed
+                                    <span class="badge bg-success">
 
-                                </span>
+                                        Completed
+
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="badge bg-warning text-dark">
+
+                                        Waiting
+
+                                    </span>
+
+                                {% endif %}
 
                             </td>
 
@@ -262,21 +269,43 @@
 
                 <div class="d-grid gap-3">
 
-                    <a
-                        href="{% url 'protein_list' analyses.first.id %}"
-                        class="btn btn-success">
+                    {% if latest_analysis %}
 
-                        🧬 View Proteins
+                        <a
+                            href="{% url 'protein_list' latest_analysis.id %}"
+                            class="btn btn-success">
 
-                    </a>
+                            🧬 View Proteins
 
-                    <a
-                        href="{% url 'run_signalp' analyses.first.id %}"
-                        class="btn btn-primary">
+                        </a>
 
-                        ▶ Run SignalP
+                        <a
+                            href="{% url 'run_signalp' latest_analysis.id %}"
+                            class="btn btn-primary">
 
-                    </a>
+                            ▶ Run SignalP
+
+                        </a>
+
+                    {% else %}
+
+                        <button
+                            class="btn btn-secondary"
+                            disabled>
+
+                            🧬 View Proteins
+
+                        </button>
+
+                        <button
+                            class="btn btn-secondary"
+                            disabled>
+
+                            ▶ Run SignalP
+
+                        </button>
+
+                    {% endif %}
 
                 </div>
 
