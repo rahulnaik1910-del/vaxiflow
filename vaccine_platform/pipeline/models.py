@@ -130,9 +130,7 @@ class WorkflowTask(models.Model):
         blank=True,
     )
 
-    log = models.TextField(
-        blank=True,
-    )
+    log = models.TextField(blank=True)
 
     exit_code = models.IntegerField(
         null=True,
@@ -148,4 +146,61 @@ class WorkflowTask(models.Model):
             f"{self.workflow_run.project.project_name} - "
             f"{self.stage.name}"
         )
+
+
+class Protein(models.Model):
+
+    workflow_run = models.ForeignKey(
+        WorkflowRun,
+        on_delete=models.CASCADE,
+        related_name="proteins",
+    )
+
+    protein_id = models.CharField(max_length=200)
+
+    locus_tag = models.CharField(
+        max_length=200,
+        blank=True,
+    )
+
+    gene = models.CharField(
+        max_length=200,
+        blank=True,
+    )
+
+    product = models.CharField(
+        max_length=500,
+        blank=True,
+    )
+
+    sequence = models.TextField()
+
+    length = models.IntegerField()
+
+    start = models.IntegerField(
+        null=True,
+        blank=True,
+    )
+
+    end = models.IntegerField(
+        null=True,
+        blank=True,
+    )
+
+    strand = models.CharField(
+        max_length=1,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    class Meta:
+        ordering = ["protein_id"]
+
+    def __str__(self):
+        if self.product:
+            return f"{self.protein_id} ({self.product})"
+        return self.protein_id
     
