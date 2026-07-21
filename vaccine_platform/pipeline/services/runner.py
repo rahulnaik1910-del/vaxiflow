@@ -8,6 +8,12 @@ from pipeline.services.tools.bakta import (
     BaktaExecutor,
 )
 
+from pipeline.services.importers.bakta_importer import (
+    BaktaImporter,
+)
+
+from users.models import Analysis
+
 from users.validators import (
     validate_nucleotide_fasta,
 )
@@ -225,6 +231,13 @@ class PipelineRunner:
             )
             task.save()
 
+            analysis = Analysis.objects.create(
+                project=workflow_run.project,
+                genome=genome,
+                analysis_type="bakta",
+                status="running",
+            )
+
             result = BaktaExecutor.run(
                 genome=genome,
                 workflow_run=workflow_run,
@@ -236,7 +249,17 @@ class PipelineRunner:
             )
             task.save()
 
+            analysis.output_directory = (
+                result["output_directory"]
+            )
+            analysis.exit_code = result["exit_code"]
+
             if result["exit_code"] != 0:
+
+                analysis.status = "failed"
+                analysis.log = result["log"]
+                analysis.completed_at = timezone.now()
+                analysis.save()
 
                 task.status = "failed"
                 task.completed_at = timezone.now()
@@ -249,6 +272,26 @@ class PipelineRunner:
                 task.save()
 
                 return False
+
+            import_result = BaktaImporter.import_from_output(
+                genome=genome,
+                analysis=analysis,
+                output_dir=result["output_directory"],
+                prefix=result["prefix"],
+            )
+
+            task.log += (
+                "\n"
+                f"{import_result['log']}\n"
+            )
+            task.save()
+
+            analysis.status = "completed"
+            analysis.log = (
+                f"{result['log']}\n\n{import_result['log']}"
+            )
+            analysis.completed_at = timezone.now()
+            analysis.save()
 
         task.status = "completed"
         task.completed_at = timezone.now()

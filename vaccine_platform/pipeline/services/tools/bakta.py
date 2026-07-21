@@ -37,6 +37,7 @@ class BaktaExecutor:
                 "exit_code": 1,
                 "log": validation_message,
                 "output_directory": "",
+                "prefix": "",
             }
 
         output_dir = (
@@ -92,6 +93,7 @@ class BaktaExecutor:
                 "exit_code": 1,
                 "log": str(e),
                 "output_directory": str(output_dir),
+                "prefix": prefix,
             }
 
         elapsed = round(time.time() - start, 2)
@@ -110,5 +112,6 @@ class BaktaExecutor:
             "exit_code": result.returncode,
             "log": log,
             "output_directory": str(output_dir),
+            "prefix": prefix,
         }
     
