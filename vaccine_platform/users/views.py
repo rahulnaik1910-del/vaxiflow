@@ -20,7 +20,6 @@ from .validators import (
 
 from proteins.models import Protein
 from pipeline.models import WorkflowRun
-from services.analysis.service import AnalysisService
 
 
 def home(request):
@@ -285,80 +284,9 @@ def download_genome(request, genome_id):
     )
 
 
-def run_annotation(request, genome_id):
 
-    print(
-        "\n==================================="
-    )
-    print(
-        "RUN ANNOTATION VIEW REACHED"
-    )
-    print(
-        "Genome ID:",
-        genome_id,
-    )
-    print(
-        "===================================\n"
-    )
-
-    genome = get_object_or_404(
-        Genome,
-        id=genome_id,
-    )
-
-    print(
-        "Genome loaded:",
-        genome,
-    )
-
-    analysis = Analysis.objects.create(
-        project=genome.project,
-        genome=genome,
-        analysis_type="annotation",
-        status="pending",
-    )
-
-    print(
-        "Analysis created:",
-        analysis.id,
-    )
-
-    try:
-
-        print(
-            "Calling AnalysisService..."
-        )
-
-        AnalysisService.run_annotation(
-            analysis
-        )
-
-        print(
-            "AnalysisService finished."
-        )
-
-        messages.success(
-            request,
-            "Genome annotation completed "
-            "successfully.",
-        )
-
-    except Exception as error:
-
-        print(
-            "\nERROR OCCURRED"
-        )
-        print(
-            error
-        )
-        print()
-
-        messages.error(
-            request,
-            f"Annotation failed: {error}",
-        )
-
-    return redirect(
-        "project_detail",
-        project_id=genome.project.id,
-    )
+# NOTE: The old per-genome `run_annotation` view has been removed.
+# It called a legacy Prokka-based AnalysisService that is no longer
+# part of this codebase. Genome annotation now runs exclusively
+# through the Bakta pipeline via `start_workflow` (see pipeline app),
+# which is triggered from the project detail page.

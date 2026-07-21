@@ -9,13 +9,9 @@ from users.validators import validate_nucleotide_fasta
 
 class BaktaExecutor:
 
-    BAKTA_EXECUTABLE = (
-        "/home/rahul/miniconda3/envs/vaxiflow/bin/bakta"
-    )
+    BAKTA_EXECUTABLE = settings.BAKTA_EXECUTABLE
 
-    BAKTA_DB = (
-        "/mnt/d/VaxiFlowData/bakta-light/db-light"
-    )
+    BAKTA_DB = settings.BAKTA_DB
 
     @staticmethod
     def run(genome, workflow_run):

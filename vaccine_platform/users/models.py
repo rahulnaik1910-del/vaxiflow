@@ -38,13 +38,17 @@ class Genome(models.Model):
 class Analysis(models.Model):
 
     ANALYSIS_TYPES = [
-        ("annotation", "Genome Annotation"),
-        ("signalp", "SignalP"),
-        ("tmhmm", "TMHMM"),
-        ("psortb", "PSORTb"),
-        ("blast", "BLAST"),
-        ("vaxijen", "VaxiJen"),
-        ("ai", "AI Analysis"),
+        ("bakta", "Bakta Annotation"),
+        ("panaroo", "Panaroo Pan-Genome"),
+        ("deg_filter", "Essential Gene Filter (DEG)"),
+        ("human_homology", "Human Homology (DIAMOND/BLAST)"),
+        ("psortb", "PSORTb Localization"),
+        ("phobius", "Phobius"),
+        ("antigenicity", "Antigenicity"),
+        ("allergenicity", "Allergenicity"),
+        ("toxicity", "Toxicity"),
+        ("iedb", "IEDB Epitope Prediction"),
+        ("ai_ranking", "AI Candidate Ranking"),
     ]
 
     STATUS_CHOICES = [

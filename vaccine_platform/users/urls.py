@@ -32,9 +32,4 @@ urlpatterns = [
         name="download_genome",
     ),
 
-    path(
-        "genome/<int:genome_id>/annotate/",
-        views.run_annotation,
-        name="run_annotation",
-    ),
 ]

@@ -4,7 +4,7 @@ from users.models import Analysis
 
 class Protein(models.Model):
     """
-    Stores one protein predicted by Prokka.
+    Stores one protein predicted by Bakta annotation.
     """
 
     analysis = models.ForeignKey(

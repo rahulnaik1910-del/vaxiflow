@@ -21,3 +21,9 @@ media/
 
 # macOS
 .DS_Store
+
+# BLAST databases (large binary, regenerate/download instead of committing)
+blast_data/
+
+# Local environment overrides
+.env
