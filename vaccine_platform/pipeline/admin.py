@@ -5,6 +5,9 @@ from .models import (
     WorkflowStage,
     WorkflowRun,
     WorkflowTask,
+    PanarooRun,
+    GeneCluster,
+    GeneClusterMember,
 )
 
 
@@ -109,5 +112,70 @@ class WorkflowTaskAdmin(admin.ModelAdmin):
     ordering = (
         "workflow_run",
         "stage__order",
+    )
+
+
+@admin.register(PanarooRun)
+class PanarooRunAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "workflow_run",
+        "status",
+        "genome_count",
+        "core_gene_count",
+        "accessory_gene_count",
+        "started_at",
+    )
+
+    list_filter = (
+        "status",
+    )
+
+    search_fields = (
+        "workflow_run__project__project_name",
+    )
+
+    readonly_fields = (
+        "started_at",
+        "completed_at",
+    )
+
+
+@admin.register(GeneCluster)
+class GeneClusterAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "cluster_name",
+        "panaroo_run",
+        "is_core",
+        "genome_count",
+    )
+
+    list_filter = (
+        "is_core",
+        "panaroo_run",
+    )
+
+    search_fields = (
+        "cluster_name",
+    )
+
+
+@admin.register(GeneClusterMember)
+class GeneClusterMemberAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "gene_cluster",
+        "genome",
+        "protein",
+    )
+
+    list_filter = (
+        "genome",
+    )
+
+    search_fields = (
+        "gene_cluster__cluster_name",
+        "protein__protein_id",
     )
     

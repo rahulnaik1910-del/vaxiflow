@@ -48,6 +48,15 @@ BAKTA_DB = os.environ.get(
     "/mnt/d/VaxiFlowData/bakta-light/db-light",
 )
 
+PANAROO_EXECUTABLE = os.environ.get(
+    "PANAROO_EXECUTABLE",
+    "/home/rahul/miniconda3/envs/vaxiflow/bin/panaroo",
+)
+
+PANAROO_MIN_GENOMES = int(
+    os.environ.get("PANAROO_MIN_GENOMES", "2")
+)
+
 
 # -----------------------------------------------------------------------------
 # Installed Applications

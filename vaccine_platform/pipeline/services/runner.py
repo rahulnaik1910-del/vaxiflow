@@ -1,15 +1,27 @@
+from pathlib import Path
+
+from django.conf import settings
 from django.utils import timezone
 
 from pipeline.models import (
     WorkflowTask,
+    PanarooRun,
 )
 
 from pipeline.services.tools.bakta import (
     BaktaExecutor,
 )
 
+from pipeline.services.tools.panaroo import (
+    PanarooExecutor,
+)
+
 from pipeline.services.importers.bakta_importer import (
     BaktaImporter,
+)
+
+from pipeline.services.importers.panaroo_importer import (
+    PanarooImporter,
 )
 
 from users.models import Analysis
@@ -75,6 +87,25 @@ class PipelineRunner:
 
                 success = (
                     PipelineRunner._run_bakta_stage(
+                        workflow_run,
+                        task,
+                    )
+                )
+
+                if not success:
+
+                    workflow_run.status = "failed"
+                    workflow_run.completed_at = (
+                        timezone.now()
+                    )
+                    workflow_run.save()
+
+                    return
+
+            elif tool_name == "panaroo":
+
+                success = (
+                    PipelineRunner._run_panaroo_stage(
                         workflow_run,
                         task,
                     )
@@ -298,6 +329,169 @@ class PipelineRunner:
         task.exit_code = 0
         task.log += (
             "\nBakta Light annotation stage "
+            "completed successfully.\n"
+        )
+        task.save()
+
+        return True
+
+    @staticmethod
+    def _run_panaroo_stage(
+        workflow_run,
+        task,
+    ):
+        """
+        Run Panaroo across every genome in the project that has a
+        completed Bakta annotation.
+
+        Panaroo computes a pan-genome by comparing genomes to each
+        other, so it requires at least
+        settings.PANAROO_MIN_GENOMES (default 2) successfully
+        Bakta-annotated genomes to run at all.
+        """
+
+        task.status = "running"
+        task.started_at = timezone.now()
+        task.completed_at = None
+        task.exit_code = None
+        task.log = (
+            "Starting Panaroo pan-genome analysis stage.\n"
+        )
+        task.save()
+
+        bakta_analyses = (
+            Analysis.objects.filter(
+                project=workflow_run.project,
+                analysis_type="bakta",
+                status="completed",
+            )
+            .select_related("genome")
+            .order_by("genome_id", "completed_at")
+        )
+
+        # Keep only the latest completed Bakta analysis per genome,
+        # in case a genome was re-annotated more than once.
+        latest_by_genome = {}
+
+        for analysis in bakta_analyses:
+            latest_by_genome[analysis.genome_id] = analysis
+
+        genome_count = len(latest_by_genome)
+
+        min_genomes = settings.PANAROO_MIN_GENOMES
+
+        task.log += (
+            f"Genomes with a completed Bakta annotation: "
+            f"{genome_count} (minimum required: {min_genomes})\n"
+        )
+        task.save()
+
+        if genome_count < min_genomes:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                f"\nPanaroo requires at least {min_genomes} "
+                "successfully Bakta-annotated genomes to compute "
+                "a pan-genome, but only "
+                f"{genome_count} were available. Upload and "
+                "annotate additional genomes for this project, "
+                "then re-run the workflow.\n"
+            )
+            task.save()
+
+            return False
+
+        gff3_paths = []
+
+        for genome_id, analysis in latest_by_genome.items():
+
+            gff3_path = (
+                Path(analysis.output_directory)
+                / f"genome_{genome_id}_annotation.gff3"
+            )
+            gff3_paths.append(gff3_path)
+
+        panaroo_run = PanarooRun.objects.create(
+            workflow_run=workflow_run,
+            status="running",
+            genome_count=genome_count,
+            started_at=timezone.now(),
+        )
+
+        output_dir = (
+            Path(settings.MEDIA_ROOT)
+            / "pipeline_runs"
+            / f"run_{workflow_run.id}"
+            / "panaroo"
+        )
+
+        task.log += (
+            f"\nRunning Panaroo on {genome_count} genomes...\n"
+        )
+        task.save()
+
+        result = PanarooExecutor.run(
+            gff3_paths=gff3_paths,
+            output_dir=output_dir,
+            panaroo_run=panaroo_run,
+        )
+
+        task.log += (
+            "\n"
+            f"{result['log']}\n"
+        )
+        task.save()
+
+        panaroo_run.output_directory = result["output_directory"]
+        panaroo_run.exit_code = result["exit_code"]
+
+        if result["exit_code"] != 0:
+
+            panaroo_run.status = "failed"
+            panaroo_run.log = result["log"]
+            panaroo_run.completed_at = timezone.now()
+            panaroo_run.save()
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = result["exit_code"]
+            task.log += (
+                "\nPanaroo pan-genome analysis failed.\n"
+            )
+            task.save()
+
+            return False
+
+        import_result = PanarooImporter.import_from_output(
+            panaroo_run=panaroo_run,
+            output_dir=result["output_directory"],
+            total_genomes=genome_count,
+        )
+
+        task.log += (
+            "\n"
+            f"{import_result['log']}\n"
+        )
+        task.save()
+
+        panaroo_run.core_gene_count = import_result["core_count"]
+        panaroo_run.accessory_gene_count = (
+            import_result["accessory_count"]
+        )
+        panaroo_run.status = "completed"
+        panaroo_run.log = (
+            f"{result['log']}\n\n{import_result['log']}"
+        )
+        panaroo_run.completed_at = timezone.now()
+        panaroo_run.save()
+
+        task.status = "completed"
+        task.completed_at = timezone.now()
+        task.exit_code = 0
+        task.log += (
+            "\nPanaroo pan-genome analysis stage "
             "completed successfully.\n"
         )
         task.save()
