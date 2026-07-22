@@ -9,6 +9,7 @@ from .models import (
     GeneCluster,
     GeneClusterMember,
     DegHit,
+    PsortbResult,
 )
 
 
@@ -178,6 +179,26 @@ class DegHitAdmin(admin.ModelAdmin):
     search_fields = (
         "gene_cluster__cluster_name",
         "subject_id",
+    )
+
+
+@admin.register(PsortbResult)
+class PsortbResultAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "protein",
+        "localization",
+        "score",
+        "is_surface_exposed",
+    )
+
+    list_filter = (
+        "localization",
+        "is_surface_exposed",
+    )
+
+    search_fields = (
+        "protein__protein_id",
     )
 
 

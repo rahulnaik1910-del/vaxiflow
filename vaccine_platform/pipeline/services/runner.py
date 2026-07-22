@@ -33,6 +33,14 @@ from pipeline.services.importers.deg_importer import (
     DegImporter,
 )
 
+from pipeline.services.tools.psortb import (
+    PsortbExecutor,
+)
+
+from pipeline.services.importers.psortb_importer import (
+    PsortbImporter,
+)
+
 from blast.services.service import BlastService
 from blast.models import BlastResult
 
@@ -156,6 +164,25 @@ class PipelineRunner:
 
                 success = (
                     PipelineRunner._run_human_homology_stage(
+                        workflow_run,
+                        task,
+                    )
+                )
+
+                if not success:
+
+                    workflow_run.status = "failed"
+                    workflow_run.completed_at = (
+                        timezone.now()
+                    )
+                    workflow_run.save()
+
+                    return
+
+            elif tool_name == "psortb":
+
+                success = (
+                    PipelineRunner._run_psortb_stage(
                         workflow_run,
                         task,
                     )
@@ -860,6 +887,187 @@ class PipelineRunner:
             "\nHuman Homology stage completed "
             f"({failed} of {len(proteins_to_screen)} proteins "
             "failed and were skipped).\n"
+        )
+        task.save()
+
+        return True
+
+    @staticmethod
+    def _run_psortb_stage(
+        workflow_run,
+        task,
+    ):
+        """
+        Run PSORTb subcellular localization prediction on essential
+        core-genome proteins that did NOT show significant human
+        homology, i.e. the surviving vaccine candidates at this
+        point in the pipeline.
+
+        Only proteins predicted to be surface-exposed (OuterMembrane
+        or Extracellular, per settings.PSORTB_SURFACE_LOCALIZATIONS)
+        are viable targets, since those are what antibodies can
+        actually reach.
+        """
+
+        task.status = "running"
+        task.started_at = timezone.now()
+        task.completed_at = None
+        task.exit_code = None
+        task.log = (
+            "Starting PSORTb subcellular localization stage.\n"
+        )
+        task.save()
+
+        panaroo_run = (
+            PanarooRun.objects.filter(
+                workflow_run=workflow_run,
+                status="completed",
+            )
+            .order_by("-completed_at")
+            .first()
+        )
+
+        if panaroo_run is None:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                "\nNo completed Panaroo run was found for this "
+                "workflow. PSORTb requires a core genome from "
+                "Panaroo.\n"
+            )
+            task.save()
+
+            return False
+
+        essential_clusters = (
+            GeneCluster.objects.filter(
+                panaroo_run=panaroo_run,
+                is_core=True,
+                is_essential=True,
+            )
+            .prefetch_related("members__protein")
+        )
+
+        candidate_proteins = []
+
+        for cluster in essential_clusters:
+
+            member = (
+                cluster.members
+                .filter(protein__isnull=False)
+                .order_by("protein_id")
+                .first()
+            )
+
+            if member is not None:
+                candidate_proteins.append(member.protein)
+
+        # Exclude proteins with a significant human BLAST hit -
+        # those are poor vaccine candidates regardless of location.
+        excluded_protein_ids = set(
+            BlastResult.objects.filter(
+                protein__in=candidate_proteins,
+                identity__gte=(
+                    settings.HUMAN_HOMOLOGY_MAX_IDENTITY
+                ),
+            ).values_list("protein_id", flat=True)
+        )
+
+        proteins_to_screen = [
+            protein
+            for protein in candidate_proteins
+            if protein.id not in excluded_protein_ids
+        ]
+
+        task.log += (
+            f"Essential core gene clusters: "
+            f"{essential_clusters.count()}\n"
+            f"Excluded for significant human homology "
+            f"(>= {settings.HUMAN_HOMOLOGY_MAX_IDENTITY}% "
+            f"identity): {len(excluded_protein_ids)}\n"
+            f"Proteins to screen with PSORTb: "
+            f"{len(proteins_to_screen)}\n"
+        )
+        task.save()
+
+        if not proteins_to_screen:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                "\nNo candidate proteins remained after excluding "
+                "human-homologous essential genes. Nothing to "
+                "screen with PSORTb.\n"
+            )
+            task.save()
+
+            return False
+
+        gram_stain = workflow_run.project.gram_stain
+
+        task.log += (
+            f"Using PSORTb mode for gram_stain='{gram_stain}' "
+            "(set on the Project - verify this is correct for "
+            "your organism).\n"
+        )
+        task.save()
+
+        output_dir = (
+            Path(settings.MEDIA_ROOT)
+            / "pipeline_runs"
+            / f"run_{workflow_run.id}"
+            / "psortb"
+        )
+
+        query_fasta = PsortbExecutor.write_query_fasta(
+            proteins=proteins_to_screen,
+            output_dir=output_dir,
+        )
+
+        result = PsortbExecutor.run(
+            query_fasta=query_fasta,
+            output_dir=output_dir,
+            gram_stain=gram_stain,
+        )
+
+        task.log += (
+            "\n"
+            f"{result['log']}\n"
+        )
+        task.save()
+
+        if result["exit_code"] != 0:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = result["exit_code"]
+            task.log += (
+                "\nPSORTb execution failed.\n"
+            )
+            task.save()
+
+            return False
+
+        import_result = PsortbImporter.import_results(
+            proteins=proteins_to_screen,
+            output_file=result["output_file"],
+        )
+
+        task.log += (
+            "\n"
+            f"{import_result['log']}\n"
+        )
+        task.save()
+
+        task.status = "completed"
+        task.completed_at = timezone.now()
+        task.exit_code = 0
+        task.log += (
+            "\nPSORTb subcellular localization stage completed "
+            "successfully.\n"
         )
         task.save()
 

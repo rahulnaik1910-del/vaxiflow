@@ -375,4 +375,42 @@ class DegHit(models.Model):
             f"{self.gene_cluster.cluster_name} -> "
             f"{self.subject_id or 'no hit'}"
         )
+
+
+class PsortbResult(models.Model):
+    """
+    Stores the PSORTb subcellular localization prediction for one
+    protein (terse output: SeqID, Localization, Score).
+    """
+
+    protein = models.ForeignKey(
+        Protein,
+        on_delete=models.CASCADE,
+        related_name="psortb_results",
+    )
+
+    localization = models.CharField(
+        max_length=100,
+    )
+
+    score = models.FloatField()
+
+    is_surface_exposed = models.BooleanField(
+        default=False,
+        help_text=(
+            "True if `localization` is one of "
+            "settings.PSORTB_SURFACE_LOCALIZATIONS - i.e. this "
+            "protein is a plausible vaccine target location."
+        ),
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    def __str__(self):
+        return (
+            f"{self.protein.protein_id} -> {self.localization} "
+            f"({self.score})"
+        )
     

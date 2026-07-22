@@ -82,6 +82,23 @@ DEG_MIN_COVERAGE = float(
     os.environ.get("DEG_MIN_COVERAGE", "70.0")
 )
 
+HUMAN_HOMOLOGY_MAX_IDENTITY = float(
+    os.environ.get("HUMAN_HOMOLOGY_MAX_IDENTITY", "30.0")
+)
+
+# PSORTb - bacterial subcellular localization prediction.
+PSORTB_EXECUTABLE = os.environ.get(
+    "PSORTB_EXECUTABLE",
+    "psort",
+)
+
+# Localizations considered viable vaccine targets (surface-exposed
+# or secreted, i.e. reachable by antibodies).
+PSORTB_SURFACE_LOCALIZATIONS = [
+    "OuterMembrane",
+    "Extracellular",
+]
+
 
 # -----------------------------------------------------------------------------
 # Installed Applications

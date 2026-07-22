@@ -3,9 +3,27 @@ from django.db import models
 
 class Project(models.Model):
 
+    GRAM_STAIN_CHOICES = [
+        ("negative", "Gram Negative"),
+        ("positive", "Gram Positive"),
+        ("archaea", "Archaea"),
+    ]
+
     project_name = models.CharField(max_length=200)
 
     organism = models.CharField(max_length=300)
+
+    gram_stain = models.CharField(
+        max_length=20,
+        choices=GRAM_STAIN_CHOICES,
+        default="negative",
+        help_text=(
+            "Determines which PSORTb analysis mode is used for "
+            "subcellular localization prediction. Defaults to "
+            "Gram Negative - check this is correct for your "
+            "organism before running the PSORTb stage."
+        ),
+    )
 
     description = models.TextField(blank=True)
 
