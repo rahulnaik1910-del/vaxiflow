@@ -33,6 +33,9 @@ from pipeline.services.importers.deg_importer import (
     DegImporter,
 )
 
+from blast.services.service import BlastService
+from blast.models import BlastResult
+
 from users.models import Analysis
 
 from users.validators import (
@@ -134,6 +137,25 @@ class PipelineRunner:
 
                 success = (
                     PipelineRunner._run_deg_filter_stage(
+                        workflow_run,
+                        task,
+                    )
+                )
+
+                if not success:
+
+                    workflow_run.status = "failed"
+                    workflow_run.completed_at = (
+                        timezone.now()
+                    )
+                    workflow_run.save()
+
+                    return
+
+            elif tool_name == "human_homology":
+
+                success = (
+                    PipelineRunner._run_human_homology_stage(
                         workflow_run,
                         task,
                     )
@@ -685,6 +707,159 @@ class PipelineRunner:
         task.log += (
             "\nEssential Gene Filter (DEG) stage completed "
             "successfully.\n"
+        )
+        task.save()
+
+        return True
+
+    @staticmethod
+    def _run_human_homology_stage(
+        workflow_run,
+        task,
+    ):
+        """
+        Run BLASTP against the human proteome (via the existing
+        `blast` app) for every essential core-genome protein, i.e.
+        the candidates the DEG filter stage flagged as
+        is_core=True and is_essential=True.
+
+        A hit against the human proteome is a *bad* sign for a
+        vaccine candidate (cross-reactivity risk), so this stage
+        just records BlastResult rows - the actual accept/reject
+        decision on human similarity belongs to a later ranking
+        stage, not here.
+
+        Reuses BlastService.run() as-is rather than duplicating its
+        export -> BLASTP -> parse -> import logic.
+        """
+
+        task.status = "running"
+        task.started_at = timezone.now()
+        task.completed_at = None
+        task.exit_code = None
+        task.log = (
+            "Starting Human Homology (BLAST vs human proteome) "
+            "stage.\n"
+        )
+        task.save()
+
+        panaroo_run = (
+            PanarooRun.objects.filter(
+                workflow_run=workflow_run,
+                status="completed",
+            )
+            .order_by("-completed_at")
+            .first()
+        )
+
+        if panaroo_run is None:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                "\nNo completed Panaroo run was found for this "
+                "workflow. The Human Homology stage requires a "
+                "core genome from Panaroo.\n"
+            )
+            task.save()
+
+            return False
+
+        essential_clusters = (
+            GeneCluster.objects.filter(
+                panaroo_run=panaroo_run,
+                is_core=True,
+                is_essential=True,
+            )
+            .prefetch_related("members__protein")
+        )
+
+        proteins_to_screen = []
+
+        for cluster in essential_clusters:
+
+            member = (
+                cluster.members
+                .filter(protein__isnull=False)
+                .order_by("protein_id")
+                .first()
+            )
+
+            if member is not None:
+                proteins_to_screen.append(member.protein)
+
+        task.log += (
+            f"Essential core gene clusters: "
+            f"{essential_clusters.count()}\n"
+            f"Proteins to screen against the human proteome: "
+            f"{len(proteins_to_screen)}\n"
+        )
+        task.save()
+
+        if not proteins_to_screen:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                "\nNo essential core-genome proteins were "
+                "available to screen. Make sure the DEG filter "
+                "stage ran first and flagged at least one cluster "
+                "as essential.\n"
+            )
+            task.save()
+
+            return False
+
+        succeeded = 0
+        failed = 0
+
+        for protein in proteins_to_screen:
+
+            try:
+
+                BlastService.run(protein)
+
+                succeeded += 1
+
+            except Exception as error:
+
+                failed += 1
+
+                task.log += (
+                    f"BLAST failed for protein "
+                    f"{protein.protein_id}: {error}\n"
+                )
+                task.save()
+
+        task.log += (
+            f"\nHuman homology screening finished: "
+            f"{succeeded} succeeded, {failed} failed.\n"
+        )
+        task.save()
+
+        if succeeded == 0:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                "\nEvery BLAST run failed - check that the "
+                "'blastp' executable and the human_swissprot BLAST "
+                "database are correctly configured.\n"
+            )
+            task.save()
+
+            return False
+
+        task.status = "completed"
+        task.completed_at = timezone.now()
+        task.exit_code = 0
+        task.log += (
+            "\nHuman Homology stage completed "
+            f"({failed} of {len(proteins_to_screen)} proteins "
+            "failed and were skipped).\n"
         )
         task.save()
 
