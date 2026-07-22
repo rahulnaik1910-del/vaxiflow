@@ -6,6 +6,7 @@ from django.utils import timezone
 from pipeline.models import (
     WorkflowTask,
     PanarooRun,
+    GeneCluster,
 )
 
 from pipeline.services.tools.bakta import (
@@ -16,12 +17,20 @@ from pipeline.services.tools.panaroo import (
     PanarooExecutor,
 )
 
+from pipeline.services.tools.deg import (
+    DegExecutor,
+)
+
 from pipeline.services.importers.bakta_importer import (
     BaktaImporter,
 )
 
 from pipeline.services.importers.panaroo_importer import (
     PanarooImporter,
+)
+
+from pipeline.services.importers.deg_importer import (
+    DegImporter,
 )
 
 from users.models import Analysis
@@ -106,6 +115,25 @@ class PipelineRunner:
 
                 success = (
                     PipelineRunner._run_panaroo_stage(
+                        workflow_run,
+                        task,
+                    )
+                )
+
+                if not success:
+
+                    workflow_run.status = "failed"
+                    workflow_run.completed_at = (
+                        timezone.now()
+                    )
+                    workflow_run.save()
+
+                    return
+
+            elif tool_name == "deg_filter":
+
+                success = (
+                    PipelineRunner._run_deg_filter_stage(
                         workflow_run,
                         task,
                     )
@@ -493,6 +521,170 @@ class PipelineRunner:
         task.log += (
             "\nPanaroo pan-genome analysis stage "
             "completed successfully.\n"
+        )
+        task.save()
+
+        return True
+
+    @staticmethod
+    def _run_deg_filter_stage(
+        workflow_run,
+        task,
+    ):
+        """
+        Screen the project's core genome (GeneCluster rows with
+        is_core=True from the most recent PanarooRun) against the
+        Database of Essential Genes (DEG) using BLASTP, and flag
+        each core cluster as essential or not.
+
+        One representative protein per cluster is used as the query
+        (the first member, by id) rather than blasting every member
+        protein - this is standard practice, since members of the
+        same orthologous cluster are expected to be near-identical.
+        """
+
+        task.status = "running"
+        task.started_at = timezone.now()
+        task.completed_at = None
+        task.exit_code = None
+        task.log = (
+            "Starting Essential Gene Filter (DEG) stage.\n"
+        )
+        task.save()
+
+        panaroo_run = (
+            PanarooRun.objects.filter(
+                workflow_run=workflow_run,
+                status="completed",
+            )
+            .order_by("-completed_at")
+            .first()
+        )
+
+        if panaroo_run is None:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                "\nNo completed Panaroo run was found for this "
+                "workflow. The DEG filter requires a core genome "
+                "from Panaroo to screen.\n"
+            )
+            task.save()
+
+            return False
+
+        core_clusters = (
+            GeneCluster.objects.filter(
+                panaroo_run=panaroo_run,
+                is_core=True,
+            )
+            .prefetch_related("members__protein")
+        )
+
+        representative_proteins = {}
+
+        for cluster in core_clusters:
+
+            member = (
+                cluster.members
+                .filter(protein__isnull=False)
+                .order_by("protein_id")
+                .first()
+            )
+
+            if member is not None:
+                representative_proteins[cluster.id] = (
+                    cluster,
+                    member.protein,
+                )
+
+        task.log += (
+            f"Core gene clusters found: {core_clusters.count()}\n"
+            "Core clusters with a resolvable representative "
+            f"protein: {len(representative_proteins)}\n"
+        )
+        task.save()
+
+        if not representative_proteins:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                "\nNo core cluster had a representative protein to "
+                "screen. Nothing to do.\n"
+            )
+            task.save()
+
+            return False
+
+        output_dir = (
+            Path(settings.MEDIA_ROOT)
+            / "pipeline_runs"
+            / f"run_{workflow_run.id}"
+            / "deg"
+        )
+
+        query_fasta = DegExecutor.write_query_fasta(
+            representative_proteins=[
+                (cluster_id, protein)
+                for cluster_id, (
+                    _,
+                    protein,
+                ) in representative_proteins.items()
+            ],
+            output_dir=output_dir,
+        )
+
+        task.log += (
+            f"\nWrote {len(representative_proteins)} representative "
+            f"sequences to {query_fasta}\n"
+            "Running BLASTP against the DEG database...\n"
+        )
+        task.save()
+
+        result = DegExecutor.run(
+            query_fasta=query_fasta,
+            output_dir=output_dir,
+        )
+
+        task.log += (
+            "\n"
+            f"{result['log']}\n"
+        )
+        task.save()
+
+        if result["exit_code"] != 0:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = result["exit_code"]
+            task.log += (
+                "\nDEG screening (BLASTP) failed.\n"
+            )
+            task.save()
+
+            return False
+
+        import_result = DegImporter.import_results(
+            representative_proteins=representative_proteins,
+            output_file=result["output_file"],
+        )
+
+        task.log += (
+            "\n"
+            f"{import_result['log']}\n"
+        )
+        task.save()
+
+        task.status = "completed"
+        task.completed_at = timezone.now()
+        task.exit_code = 0
+        task.log += (
+            "\nEssential Gene Filter (DEG) stage completed "
+            "successfully.\n"
         )
         task.save()
 

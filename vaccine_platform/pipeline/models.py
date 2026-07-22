@@ -248,6 +248,16 @@ class GeneCluster(models.Model):
         ),
     )
 
+    is_essential = models.BooleanField(
+        default=False,
+        help_text=(
+            "True if this gene's representative protein had a "
+            "significant BLAST hit against the Database of "
+            "Essential Genes (DEG), above the configured identity/"
+            "e-value/coverage thresholds."
+        ),
+    )
+
     genome_count = models.PositiveIntegerField(
         default=0,
         help_text="Number of genomes in which this gene was found.",
@@ -296,4 +306,73 @@ class GeneClusterMember(models.Model):
 
     def __str__(self):
         return f"{self.gene_cluster.cluster_name} - {self.genome}"
+
+
+class DegHit(models.Model):
+    """
+    Stores the best BLASTP hit of a core GeneCluster's representative
+    protein against the Database of Essential Genes (DEG).
+
+    One row per GeneCluster that was screened (whether or not it
+    produced a hit above threshold - GeneCluster.is_essential records
+    the pass/fail decision, this table keeps the raw evidence).
+    """
+
+    gene_cluster = models.OneToOneField(
+        GeneCluster,
+        on_delete=models.CASCADE,
+        related_name="deg_hit",
+    )
+
+    representative_protein = models.ForeignKey(
+        Protein,
+        on_delete=models.CASCADE,
+        related_name="deg_hits",
+        help_text=(
+            "Which member protein of the gene cluster was used as "
+            "the query sequence."
+        ),
+    )
+
+    subject_id = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="DEG entry ID of the best hit, if any.",
+    )
+
+    identity = models.FloatField(
+        null=True,
+        blank=True,
+    )
+
+    alignment_length = models.IntegerField(
+        null=True,
+        blank=True,
+    )
+
+    coverage = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="alignment_length / query length, as a percent.",
+    )
+
+    evalue = models.FloatField(
+        null=True,
+        blank=True,
+    )
+
+    bit_score = models.FloatField(
+        null=True,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    def __str__(self):
+        return (
+            f"{self.gene_cluster.cluster_name} -> "
+            f"{self.subject_id or 'no hit'}"
+        )
     

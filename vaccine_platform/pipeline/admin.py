@@ -8,6 +8,7 @@ from .models import (
     PanarooRun,
     GeneCluster,
     GeneClusterMember,
+    DegHit,
 )
 
 
@@ -148,16 +149,35 @@ class GeneClusterAdmin(admin.ModelAdmin):
         "cluster_name",
         "panaroo_run",
         "is_core",
+        "is_essential",
         "genome_count",
     )
 
     list_filter = (
         "is_core",
+        "is_essential",
         "panaroo_run",
     )
 
     search_fields = (
         "cluster_name",
+    )
+
+
+@admin.register(DegHit)
+class DegHitAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "gene_cluster",
+        "subject_id",
+        "identity",
+        "coverage",
+        "evalue",
+    )
+
+    search_fields = (
+        "gene_cluster__cluster_name",
+        "subject_id",
     )
 
 

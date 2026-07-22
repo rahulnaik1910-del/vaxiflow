@@ -57,6 +57,31 @@ PANAROO_MIN_GENOMES = int(
     os.environ.get("PANAROO_MIN_GENOMES", "2")
 )
 
+# Essential Gene Filter (DEG) - BLASTP against the Database of
+# Essential Genes. Thresholds follow the commonly used DEG
+# homology-based essentiality convention (see DEG documentation).
+DEG_BLASTP_EXECUTABLE = os.environ.get(
+    "DEG_BLASTP_EXECUTABLE",
+    "blastp",
+)
+
+DEG_DATABASE = os.environ.get(
+    "DEG_DATABASE",
+    "/mnt/d/VaxiFlowData/deg-db/deg",
+)
+
+DEG_MIN_IDENTITY = float(
+    os.environ.get("DEG_MIN_IDENTITY", "30.0")
+)
+
+DEG_MAX_EVALUE = float(
+    os.environ.get("DEG_MAX_EVALUE", "1e-10")
+)
+
+DEG_MIN_COVERAGE = float(
+    os.environ.get("DEG_MIN_COVERAGE", "70.0")
+)
+
 
 # -----------------------------------------------------------------------------
 # Installed Applications
