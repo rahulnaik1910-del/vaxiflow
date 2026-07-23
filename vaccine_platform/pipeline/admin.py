@@ -10,6 +10,7 @@ from .models import (
     GeneClusterMember,
     DegHit,
     PsortbResult,
+    PhobiusResult,
 )
 
 
@@ -195,6 +196,26 @@ class PsortbResultAdmin(admin.ModelAdmin):
     list_filter = (
         "localization",
         "is_surface_exposed",
+    )
+
+    search_fields = (
+        "protein__protein_id",
+    )
+
+
+@admin.register(PhobiusResult)
+class PhobiusResultAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "protein",
+        "tm_helix_count",
+        "has_signal_peptide",
+        "is_favorable_topology",
+    )
+
+    list_filter = (
+        "has_signal_peptide",
+        "is_favorable_topology",
     )
 
     search_fields = (

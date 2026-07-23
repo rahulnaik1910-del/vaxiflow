@@ -413,4 +413,53 @@ class PsortbResult(models.Model):
             f"{self.protein.protein_id} -> {self.localization} "
             f"({self.score})"
         )
+
+
+class PhobiusResult(models.Model):
+    """
+    Stores Phobius's signal peptide + transmembrane topology
+    prediction for one protein (short-format output: TM count, SP
+    presence, topology string).
+    """
+
+    protein = models.ForeignKey(
+        Protein,
+        on_delete=models.CASCADE,
+        related_name="phobius_results",
+    )
+
+    tm_helix_count = models.PositiveIntegerField(
+        default=0,
+    )
+
+    has_signal_peptide = models.BooleanField(
+        default=False,
+    )
+
+    topology = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Raw PREDICTION string from Phobius short output.",
+    )
+
+    is_favorable_topology = models.BooleanField(
+        default=False,
+        help_text=(
+            "True if tm_helix_count <= "
+            "settings.PHOBIUS_MAX_TM_HELICES - i.e. this protein "
+            "isn't buried in too many membrane-spanning segments "
+            "to be a practical vaccine candidate."
+        ),
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    def __str__(self):
+        return (
+            f"{self.protein.protein_id} -> "
+            f"{self.tm_helix_count} TM helices, "
+            f"SP={self.has_signal_peptide}"
+        )
     

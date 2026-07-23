@@ -99,6 +99,19 @@ PSORTB_SURFACE_LOCALIZATIONS = [
     "Extracellular",
 ]
 
+# Phobius - signal peptide + transmembrane topology prediction.
+# Proteins with more transmembrane helices than this are considered
+# poor vaccine candidates (hard to express recombinantly, mostly
+# buried rather than surface-accessible).
+PHOBIUS_EXECUTABLE = os.environ.get(
+    "PHOBIUS_EXECUTABLE",
+    "/opt/phobius/phobius.pl",
+)
+
+PHOBIUS_MAX_TM_HELICES = int(
+    os.environ.get("PHOBIUS_MAX_TM_HELICES", "1")
+)
+
 
 # -----------------------------------------------------------------------------
 # Installed Applications
