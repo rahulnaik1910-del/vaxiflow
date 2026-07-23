@@ -417,15 +417,34 @@ class PsortbResult(models.Model):
 
 class PhobiusResult(models.Model):
     """
-    Stores Phobius's signal peptide + transmembrane topology
-    prediction for one protein (short-format output: TM count, SP
-    presence, topology string).
+    Stores a signal peptide + transmembrane topology prediction for
+    one protein (either from real Phobius, or from the native
+    Kyte-Doolittle fallback when Phobius isn't installed).
     """
+
+    PREDICTION_SOURCE_CHOICES = [
+        ("phobius", "Phobius (real binary)"),
+        (
+            "kyte_doolittle_fallback",
+            "Kyte-Doolittle (native fallback)",
+        ),
+    ]
 
     protein = models.ForeignKey(
         Protein,
         on_delete=models.CASCADE,
         related_name="phobius_results",
+    )
+
+    prediction_source = models.CharField(
+        max_length=30,
+        choices=PREDICTION_SOURCE_CHOICES,
+        default="phobius",
+        help_text=(
+            "Which method produced this result. Real Phobius is "
+            "more accurate than the native fallback - check this "
+            "field before trusting borderline calls."
+        ),
     )
 
     tm_helix_count = models.PositiveIntegerField(

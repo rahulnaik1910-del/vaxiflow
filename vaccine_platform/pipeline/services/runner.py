@@ -1,3 +1,5 @@
+import os
+import shutil
 from pathlib import Path
 
 from django.conf import settings
@@ -8,6 +10,10 @@ from pipeline.models import (
     PanarooRun,
     GeneCluster,
     PsortbResult,
+)
+
+from pipeline.services.tools.kyte_doolittle import (
+    KyteDoolittleTopologyPredictor,
 )
 
 from pipeline.services.tools.bakta import (
@@ -1230,38 +1236,87 @@ class PipelineRunner:
             / "phobius"
         )
 
-        query_fasta = PhobiusExecutor.write_query_fasta(
-            proteins=proteins_to_screen,
-            output_dir=output_dir,
+        phobius_available = bool(
+            shutil.which(settings.PHOBIUS_EXECUTABLE)
+            or (
+                Path(settings.PHOBIUS_EXECUTABLE).is_file()
+                and os.access(
+                    settings.PHOBIUS_EXECUTABLE, os.X_OK
+                )
+            )
         )
 
-        result = PhobiusExecutor.run(
-            query_fasta=query_fasta,
-            output_dir=output_dir,
-        )
+        if phobius_available:
 
-        task.log += (
-            "\n"
-            f"{result['log']}\n"
-        )
-        task.save()
-
-        if result["exit_code"] != 0:
-
-            task.status = "failed"
-            task.completed_at = timezone.now()
-            task.exit_code = result["exit_code"]
             task.log += (
-                "\nPhobius execution failed.\n"
+                "\nReal Phobius binary found at "
+                f"{settings.PHOBIUS_EXECUTABLE} - using it.\n"
             )
             task.save()
 
-            return False
+            query_fasta = PhobiusExecutor.write_query_fasta(
+                proteins=proteins_to_screen,
+                output_dir=output_dir,
+            )
 
-        import_result = PhobiusImporter.import_results(
-            proteins=proteins_to_screen,
-            output_file=result["output_file"],
-        )
+            result = PhobiusExecutor.run(
+                query_fasta=query_fasta,
+                output_dir=output_dir,
+            )
+
+            task.log += (
+                "\n"
+                f"{result['log']}\n"
+            )
+            task.save()
+
+            if result["exit_code"] != 0:
+
+                task.status = "failed"
+                task.completed_at = timezone.now()
+                task.exit_code = result["exit_code"]
+                task.log += (
+                    "\nPhobius execution failed.\n"
+                )
+                task.save()
+
+                return False
+
+            import_result = PhobiusImporter.import_results(
+                proteins=proteins_to_screen,
+                output_file=result["output_file"],
+            )
+
+        else:
+
+            task.log += (
+                "\nReal Phobius binary not found at "
+                f"{settings.PHOBIUS_EXECUTABLE} - falling back to "
+                "the native Kyte-Doolittle hydropathy predictor. "
+                "This is less accurate than real Phobius; install "
+                "the real binary and re-run this stage for "
+                "production-quality results.\n"
+            )
+            task.save()
+
+            predictions = {
+                protein.protein_id: (
+                    KyteDoolittleTopologyPredictor.predict(
+                        protein.sequence
+                    )
+                )
+                for protein in proteins_to_screen
+            }
+
+            import_result = (
+                PhobiusImporter.import_from_predictions(
+                    proteins=proteins_to_screen,
+                    predictions=predictions,
+                    prediction_source=(
+                        "kyte_doolittle_fallback"
+                    ),
+                )
+            )
 
         task.log += (
             "\n"

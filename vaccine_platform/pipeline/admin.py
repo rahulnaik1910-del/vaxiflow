@@ -208,12 +208,14 @@ class PhobiusResultAdmin(admin.ModelAdmin):
 
     list_display = (
         "protein",
+        "prediction_source",
         "tm_helix_count",
         "has_signal_peptide",
         "is_favorable_topology",
     )
 
     list_filter = (
+        "prediction_source",
         "has_signal_peptide",
         "is_favorable_topology",
     )
