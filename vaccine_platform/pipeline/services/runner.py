@@ -10,6 +10,7 @@ from pipeline.models import (
     PanarooRun,
     GeneCluster,
     PsortbResult,
+    PhobiusResult,
 )
 
 from pipeline.services.tools.kyte_doolittle import (
@@ -54,6 +55,10 @@ from pipeline.services.tools.phobius import (
 
 from pipeline.services.importers.phobius_importer import (
     PhobiusImporter,
+)
+
+from pipeline.services.importers.antigenicity_importer import (
+    AntigenicityImporter,
 )
 
 from blast.services.service import BlastService
@@ -217,6 +222,25 @@ class PipelineRunner:
 
                 success = (
                     PipelineRunner._run_phobius_stage(
+                        workflow_run,
+                        task,
+                    )
+                )
+
+                if not success:
+
+                    workflow_run.status = "failed"
+                    workflow_run.completed_at = (
+                        timezone.now()
+                    )
+                    workflow_run.save()
+
+                    return
+
+            elif tool_name == "antigenicity":
+
+                success = (
+                    PipelineRunner._run_antigenicity_stage(
                         workflow_run,
                         task,
                     )
@@ -1330,6 +1354,155 @@ class PipelineRunner:
         task.log += (
             "\nPhobius topology prediction stage completed "
             "successfully.\n"
+        )
+        task.save()
+
+        return True
+
+    @staticmethod
+    def _run_antigenicity_stage(
+        workflow_run,
+        task,
+    ):
+        """
+        Score essential, non-human-homologous, surface-exposed,
+        favorable-topology proteins (i.e. candidates that survived
+        every prior filter) for antigenicity using the native
+        Kolaskar-Tongaonkar implementation.
+
+        This never needs an external binary or falls back to
+        anything - the scoring method is a pure calculation, so this
+        stage always runs to completion.
+        """
+
+        task.status = "running"
+        task.started_at = timezone.now()
+        task.completed_at = None
+        task.exit_code = None
+        task.log = (
+            "Starting Antigenicity (Kolaskar-Tongaonkar) stage.\n"
+        )
+        task.save()
+
+        panaroo_run = (
+            PanarooRun.objects.filter(
+                workflow_run=workflow_run,
+                status="completed",
+            )
+            .order_by("-completed_at")
+            .first()
+        )
+
+        if panaroo_run is None:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                "\nNo completed Panaroo run was found for this "
+                "workflow. Antigenicity scoring requires a core "
+                "genome from Panaroo.\n"
+            )
+            task.save()
+
+            return False
+
+        essential_clusters = (
+            GeneCluster.objects.filter(
+                panaroo_run=panaroo_run,
+                is_core=True,
+                is_essential=True,
+            )
+            .prefetch_related("members__protein")
+        )
+
+        candidate_proteins = []
+
+        for cluster in essential_clusters:
+
+            member = (
+                cluster.members
+                .filter(protein__isnull=False)
+                .order_by("protein_id")
+                .first()
+            )
+
+            if member is not None:
+                candidate_proteins.append(member.protein)
+
+        excluded_for_human_homology = set(
+            BlastResult.objects.filter(
+                protein__in=candidate_proteins,
+                identity__gte=(
+                    settings.HUMAN_HOMOLOGY_MAX_IDENTITY
+                ),
+            ).values_list("protein_id", flat=True)
+        )
+
+        surface_exposed_protein_ids = set(
+            PsortbResult.objects.filter(
+                protein__in=candidate_proteins,
+                is_surface_exposed=True,
+            ).values_list("protein_id", flat=True)
+        )
+
+        favorable_topology_protein_ids = set(
+            PhobiusResult.objects.filter(
+                protein__in=candidate_proteins,
+                is_favorable_topology=True,
+            ).values_list("protein_id", flat=True)
+        )
+
+        proteins_to_screen = [
+            protein
+            for protein in candidate_proteins
+            if protein.id not in excluded_for_human_homology
+            and protein.id in surface_exposed_protein_ids
+            and protein.id in favorable_topology_protein_ids
+        ]
+
+        task.log += (
+            f"Essential core gene clusters: "
+            f"{essential_clusters.count()}\n"
+            f"Excluded for significant human homology: "
+            f"{len(excluded_for_human_homology)}\n"
+            f"Surface-exposed per PSORTb: "
+            f"{len(surface_exposed_protein_ids)}\n"
+            f"Favorable topology per Phobius: "
+            f"{len(favorable_topology_protein_ids)}\n"
+            f"Proteins to score for antigenicity: "
+            f"{len(proteins_to_screen)}\n"
+        )
+        task.save()
+
+        if not proteins_to_screen:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                "\nNo candidates remained after all prior filters. "
+                "Nothing to score for antigenicity.\n"
+            )
+            task.save()
+
+            return False
+
+        import_result = AntigenicityImporter.score_and_import(
+            proteins=proteins_to_screen,
+        )
+
+        task.log += (
+            "\n"
+            f"{import_result['log']}\n"
+        )
+        task.save()
+
+        task.status = "completed"
+        task.completed_at = timezone.now()
+        task.exit_code = 0
+        task.log += (
+            "\nAntigenicity stage completed successfully.\n"
         )
         task.save()
 

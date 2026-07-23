@@ -11,6 +11,7 @@ from .models import (
     DegHit,
     PsortbResult,
     PhobiusResult,
+    AntigenicityResult,
 )
 
 
@@ -243,3 +244,21 @@ class GeneClusterMemberAdmin(admin.ModelAdmin):
         "protein__protein_id",
     )
     
+
+@admin.register(AntigenicityResult)
+class AntigenicityResultAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "protein",
+        "average_propensity",
+        "antigenic_residue_fraction",
+        "is_antigenic",
+    )
+
+    list_filter = (
+        "is_antigenic",
+    )
+
+    search_fields = (
+        "protein__protein_id",
+    )

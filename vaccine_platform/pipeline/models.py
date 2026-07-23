@@ -481,4 +481,55 @@ class PhobiusResult(models.Model):
             f"{self.tm_helix_count} TM helices, "
             f"SP={self.has_signal_peptide}"
         )
+
+
+class AntigenicityResult(models.Model):
+    """
+    Stores the Kolaskar-Tongaonkar antigenicity prediction for one
+    protein. This is computed natively (see
+    pipeline.services.tools.kolaskar_tongaonkar.AntigenicityScorer)
+    rather than via an external tool, since VaxiJen has no
+    downloadable binary or public API to integrate against.
+    """
+
+    protein = models.ForeignKey(
+        Protein,
+        on_delete=models.CASCADE,
+        related_name="antigenicity_results",
+    )
+
+    average_propensity = models.FloatField(
+        help_text=(
+            "Whole-protein average Kolaskar-Tongaonkar antigenic "
+            "propensity score."
+        ),
+    )
+
+    antigenic_residue_fraction = models.FloatField(
+        help_text=(
+            "Fraction of scored heptapeptide windows above the "
+            "method's own per-window cutoff - a finer-grained "
+            "measure of how much of the protein looks antigenic."
+        ),
+    )
+
+    is_antigenic = models.BooleanField(
+        default=False,
+        help_text=(
+            "True if average_propensity >= "
+            "settings.ANTIGENICITY_THRESHOLD (default 1.0, the "
+            "cutoff from the original Kolaskar-Tongaonkar paper)."
+        ),
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    def __str__(self):
+        return (
+            f"{self.protein.protein_id} -> "
+            f"{round(self.average_propensity, 3)} "
+            f"({'antigenic' if self.is_antigenic else 'not antigenic'})"
+        )
     

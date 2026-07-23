@@ -112,6 +112,13 @@ PHOBIUS_MAX_TM_HELICES = int(
     os.environ.get("PHOBIUS_MAX_TM_HELICES", "1")
 )
 
+# Antigenicity (Kolaskar & Tongaonkar, 1990) - the canonical cutoff
+# from the original paper; average propensity >= this is considered
+# a probable antigenic determinant.
+ANTIGENICITY_THRESHOLD = float(
+    os.environ.get("ANTIGENICITY_THRESHOLD", "1.0")
+)
+
 
 # -----------------------------------------------------------------------------
 # Installed Applications
