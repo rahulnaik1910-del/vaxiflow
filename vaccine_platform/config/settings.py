@@ -167,6 +167,67 @@ TOXINPRED2_THRESHOLD = os.environ.get(
     "TOXINPRED2_THRESHOLD", "0.6"
 )
 
+# IEDB Epitope Prediction - calls the real IEDB Tools API
+# (tools-cluster-interface.iedb.org) at runtime rather than bundling
+# a local database, matching the "offload via remote API" design.
+IEDB_API_BASE_URL = os.environ.get(
+    "IEDB_API_BASE_URL",
+    "http://tools-cluster-interface.iedb.org/tools_api",
+)
+
+IEDB_REQUEST_TIMEOUT = int(
+    os.environ.get("IEDB_REQUEST_TIMEOUT", "180")
+)
+
+# B-cell (linear/continuous epitope prediction).
+IEDB_BCELL_METHOD = os.environ.get(
+    "IEDB_BCELL_METHOD", "Bepipred-2.0"
+)
+
+# MHC class I binding - default panel chosen for broad global HLA-A/B
+# population coverage, a commonly used reference set in reverse
+# vaccinology screening. Override via env (comma-separated) for a
+# population-specific panel.
+IEDB_MHCI_ALLELES = os.environ.get(
+    "IEDB_MHCI_ALLELES",
+    "HLA-A*02:01,HLA-A*01:01,HLA-A*03:01,HLA-A*24:02,"
+    "HLA-B*07:02,HLA-B*08:01",
+).split(",")
+
+IEDB_MHCI_PEPTIDE_LENGTHS = [
+    int(x)
+    for x in os.environ.get(
+        "IEDB_MHCI_PEPTIDE_LENGTHS", "9"
+    ).split(",")
+]
+
+IEDB_MHCI_METHOD = os.environ.get(
+    "IEDB_MHCI_METHOD", "recommended"
+)
+
+# Conventional strong-binder cutoff for MHC-I percentile rank.
+IEDB_MHCI_PERCENTILE_THRESHOLD = float(
+    os.environ.get("IEDB_MHCI_PERCENTILE_THRESHOLD", "2.0")
+)
+
+# MHC class II binding - default DRB1 reference panel, commonly used
+# for broad population coverage in epitope screening.
+IEDB_MHCII_ALLELES = os.environ.get(
+    "IEDB_MHCII_ALLELES",
+    "HLA-DRB1*01:01,HLA-DRB1*03:01,HLA-DRB1*04:01,"
+    "HLA-DRB1*07:01,HLA-DRB1*15:01",
+).split(",")
+
+IEDB_MHCII_METHOD = os.environ.get(
+    "IEDB_MHCII_METHOD", "recommended"
+)
+
+# MHC-II binding prediction is less precise than MHC-I, so the
+# conventional strong-binder percentile cutoff is more permissive.
+IEDB_MHCII_PERCENTILE_THRESHOLD = float(
+    os.environ.get("IEDB_MHCII_PERCENTILE_THRESHOLD", "10.0")
+)
+
 
 # -----------------------------------------------------------------------------
 # Installed Applications

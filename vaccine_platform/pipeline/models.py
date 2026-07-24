@@ -652,4 +652,173 @@ class ToxicityResult(models.Model):
             f"{'toxic' if self.is_toxic else 'non-toxic'} "
             f"({self.ml_score})"
         )
+
+
+class BCellEpitopeResult(models.Model):
+    """
+    Stores IEDB B-cell (linear/continuous) epitope prediction for
+    one protein - one row per protein, summarizing the per-residue
+    Bepipred-2.0 scan.
+    """
+
+    protein = models.OneToOneField(
+        Protein,
+        on_delete=models.CASCADE,
+        related_name="bcell_epitope_result",
+    )
+
+    method = models.CharField(
+        max_length=50,
+        default="Bepipred-2.0",
+    )
+
+    total_residues_scored = models.PositiveIntegerField(
+        default=0,
+    )
+
+    epitope_residue_count = models.PositiveIntegerField(
+        default=0,
+        help_text=(
+            "Number of residues Bepipred assigned as part of a "
+            "predicted linear epitope ('E' assignment)."
+        ),
+    )
+
+    epitope_fraction = models.FloatField(
+        default=0.0,
+    )
+
+    has_epitope = models.BooleanField(
+        default=False,
+        help_text="True if epitope_residue_count > 0.",
+    )
+
+    raw_result = models.TextField(
+        blank=True,
+        help_text="Raw tab-delimited IEDB API response.",
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    def __str__(self):
+        return (
+            f"{self.protein.protein_id} -> "
+            f"{self.epitope_residue_count}/"
+            f"{self.total_residues_scored} epitope residues"
+        )
+
+
+class MhcIEpitopeResult(models.Model):
+    """
+    Stores one predicted MHC class I binding peptide (one row per
+    peptide/allele combination - a protein typically produces many).
+    """
+
+    protein = models.ForeignKey(
+        Protein,
+        on_delete=models.CASCADE,
+        related_name="mhci_epitope_results",
+    )
+
+    allele = models.CharField(
+        max_length=50,
+    )
+
+    peptide = models.CharField(
+        max_length=50,
+    )
+
+    start = models.PositiveIntegerField()
+
+    end = models.PositiveIntegerField()
+
+    method = models.CharField(
+        max_length=50,
+        default="recommended",
+    )
+
+    ic50 = models.FloatField(
+        null=True,
+        blank=True,
+    )
+
+    percentile_rank = models.FloatField(
+        null=True,
+        blank=True,
+    )
+
+    is_strong_binder = models.BooleanField(
+        default=False,
+        help_text=(
+            "True if percentile_rank <= "
+            "settings.IEDB_MHCI_PERCENTILE_THRESHOLD "
+            "(default 2.0, the conventional strong-binder cutoff)."
+        ),
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    def __str__(self):
+        return f"{self.protein.protein_id} -> {self.peptide} ({self.allele})"
+
+
+class MhcIIEpitopeResult(models.Model):
+    """
+    Stores one predicted MHC class II binding peptide (one row per
+    peptide/allele combination).
+    """
+
+    protein = models.ForeignKey(
+        Protein,
+        on_delete=models.CASCADE,
+        related_name="mhcii_epitope_results",
+    )
+
+    allele = models.CharField(
+        max_length=50,
+    )
+
+    peptide = models.CharField(
+        max_length=50,
+    )
+
+    start = models.PositiveIntegerField()
+
+    end = models.PositiveIntegerField()
+
+    method = models.CharField(
+        max_length=50,
+        default="recommended",
+    )
+
+    ic50 = models.FloatField(
+        null=True,
+        blank=True,
+    )
+
+    percentile_rank = models.FloatField(
+        null=True,
+        blank=True,
+    )
+
+    is_strong_binder = models.BooleanField(
+        default=False,
+        help_text=(
+            "True if percentile_rank <= "
+            "settings.IEDB_MHCII_PERCENTILE_THRESHOLD "
+            "(default 10.0 - MHC-II binding prediction is less "
+            "precise than MHC-I, so this cutoff is more permissive)."
+        ),
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    def __str__(self):
+        return f"{self.protein.protein_id} -> {self.peptide} ({self.allele})"
     

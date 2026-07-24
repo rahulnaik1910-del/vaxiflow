@@ -13,6 +13,7 @@ from pipeline.models import (
     PhobiusResult,
     AntigenicityResult,
     AllergenicityResult,
+    ToxicityResult,
 )
 
 from pipeline.services.tools.kyte_doolittle import (
@@ -77,6 +78,23 @@ from pipeline.services.tools.toxinpred2 import (
 
 from pipeline.services.importers.toxicity_importer import (
     ToxicityImporter,
+)
+
+from pipeline.services.tools.iedb_api import (
+    IedbApiClient,
+    IedbApiError,
+)
+
+from pipeline.services.importers.bcell_epitope_importer import (
+    BCellEpitopeImporter,
+)
+
+from pipeline.services.importers.mhci_epitope_importer import (
+    MhcIEpitopeImporter,
+)
+
+from pipeline.services.importers.mhcii_epitope_importer import (
+    MhcIIEpitopeImporter,
 )
 
 from blast.services.service import BlastService
@@ -297,6 +315,25 @@ class PipelineRunner:
 
                 success = (
                     PipelineRunner._run_toxicity_stage(
+                        workflow_run,
+                        task,
+                    )
+                )
+
+                if not success:
+
+                    workflow_run.status = "failed"
+                    workflow_run.completed_at = (
+                        timezone.now()
+                    )
+                    workflow_run.save()
+
+                    return
+
+            elif tool_name == "iedb":
+
+                success = (
+                    PipelineRunner._run_iedb_stage(
                         workflow_run,
                         task,
                     )
@@ -1967,6 +2004,284 @@ class PipelineRunner:
         task.exit_code = 0
         task.log += (
             "\nToxicity stage completed successfully.\n"
+        )
+        task.save()
+
+        return True
+
+    @staticmethod
+    def _run_iedb_stage(
+        workflow_run,
+        task,
+    ):
+        """
+        Run B-cell, MHC-I, and MHC-II epitope prediction (via the
+        real IEDB Tools API) on the final surviving candidates -
+        proteins that passed every prior filter: essential, non-
+        human-homologous, surface-exposed, favorable topology,
+        antigenic, non-allergenic, non-toxic.
+
+        Each of the three predictions, for each protein, is
+        attempted independently and failures are logged and
+        skipped rather than aborting the whole stage - a single
+        protein or a single prediction type failing (e.g. a
+        transient IEDB API issue) shouldn't discard results already
+        obtained for other proteins. The stage only fails outright
+        if every single call failed, which signals a systemic
+        problem (network access, IEDB API down, etc.) rather than a
+        one-off.
+        """
+
+        task.status = "running"
+        task.started_at = timezone.now()
+        task.completed_at = None
+        task.exit_code = None
+        task.log = (
+            "Starting IEDB Epitope Prediction stage "
+            "(B-cell + MHC-I + MHC-II).\n"
+        )
+        task.save()
+
+        panaroo_run = (
+            PanarooRun.objects.filter(
+                workflow_run=workflow_run,
+                status="completed",
+            )
+            .order_by("-completed_at")
+            .first()
+        )
+
+        if panaroo_run is None:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                "\nNo completed Panaroo run was found for this "
+                "workflow. IEDB screening requires a core genome "
+                "from Panaroo.\n"
+            )
+            task.save()
+
+            return False
+
+        essential_clusters = (
+            GeneCluster.objects.filter(
+                panaroo_run=panaroo_run,
+                is_core=True,
+                is_essential=True,
+            )
+            .prefetch_related("members__protein")
+        )
+
+        candidate_proteins = []
+
+        for cluster in essential_clusters:
+
+            member = (
+                cluster.members
+                .filter(protein__isnull=False)
+                .order_by("protein_id")
+                .first()
+            )
+
+            if member is not None:
+                candidate_proteins.append(member.protein)
+
+        excluded_for_human_homology = set(
+            BlastResult.objects.filter(
+                protein__in=candidate_proteins,
+                identity__gte=(
+                    settings.HUMAN_HOMOLOGY_MAX_IDENTITY
+                ),
+            ).values_list("protein_id", flat=True)
+        )
+
+        surface_exposed_protein_ids = set(
+            PsortbResult.objects.filter(
+                protein__in=candidate_proteins,
+                is_surface_exposed=True,
+            ).values_list("protein_id", flat=True)
+        )
+
+        favorable_topology_protein_ids = set(
+            PhobiusResult.objects.filter(
+                protein__in=candidate_proteins,
+                is_favorable_topology=True,
+            ).values_list("protein_id", flat=True)
+        )
+
+        antigenic_protein_ids = set(
+            AntigenicityResult.objects.filter(
+                protein__in=candidate_proteins,
+                is_antigenic=True,
+            ).values_list("protein_id", flat=True)
+        )
+
+        excluded_for_allergenicity = set(
+            AllergenicityResult.objects.filter(
+                protein__in=candidate_proteins,
+                is_allergen=True,
+            ).values_list("protein_id", flat=True)
+        )
+
+        excluded_for_toxicity = set(
+            ToxicityResult.objects.filter(
+                protein__in=candidate_proteins,
+                is_toxic=True,
+            ).values_list("protein_id", flat=True)
+        )
+
+        proteins_to_screen = [
+            protein
+            for protein in candidate_proteins
+            if protein.id not in excluded_for_human_homology
+            and protein.id in surface_exposed_protein_ids
+            and protein.id in favorable_topology_protein_ids
+            and protein.id in antigenic_protein_ids
+            and protein.id not in excluded_for_allergenicity
+            and protein.id not in excluded_for_toxicity
+        ]
+
+        task.log += (
+            f"Essential core gene clusters: "
+            f"{essential_clusters.count()}\n"
+            f"Final surviving candidates after all prior filters: "
+            f"{len(proteins_to_screen)}\n"
+        )
+        task.save()
+
+        if not proteins_to_screen:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                "\nNo candidates remained after all prior filters. "
+                "Nothing to send to IEDB.\n"
+            )
+            task.save()
+
+            return False
+
+        bcell_success = 0
+        bcell_failed = 0
+        mhci_success = 0
+        mhci_failed = 0
+        mhcii_success = 0
+        mhcii_failed = 0
+
+        for protein in proteins_to_screen:
+
+            try:
+
+                rows = IedbApiClient.query_bcell_epitope(
+                    sequence=protein.sequence,
+                )
+
+                BCellEpitopeImporter.import_from_rows(
+                    protein=protein,
+                    rows=rows,
+                    method=settings.IEDB_BCELL_METHOD,
+                )
+
+                bcell_success += 1
+
+            except Exception as error:
+
+                bcell_failed += 1
+
+                task.log += (
+                    f"B-cell prediction failed for "
+                    f"{protein.protein_id}: {error}\n"
+                )
+                task.save()
+
+            try:
+
+                rows = IedbApiClient.query_mhci_binding(
+                    sequence=protein.sequence,
+                    alleles=settings.IEDB_MHCI_ALLELES,
+                    lengths=settings.IEDB_MHCI_PEPTIDE_LENGTHS,
+                )
+
+                MhcIEpitopeImporter.import_from_rows(
+                    protein=protein,
+                    rows=rows,
+                    method=settings.IEDB_MHCI_METHOD,
+                )
+
+                mhci_success += 1
+
+            except Exception as error:
+
+                mhci_failed += 1
+
+                task.log += (
+                    f"MHC-I prediction failed for "
+                    f"{protein.protein_id}: {error}\n"
+                )
+                task.save()
+
+            try:
+
+                rows = IedbApiClient.query_mhcii_binding(
+                    sequence=protein.sequence,
+                    alleles=settings.IEDB_MHCII_ALLELES,
+                )
+
+                MhcIIEpitopeImporter.import_from_rows(
+                    protein=protein,
+                    rows=rows,
+                    method=settings.IEDB_MHCII_METHOD,
+                )
+
+                mhcii_success += 1
+
+            except Exception as error:
+
+                mhcii_failed += 1
+
+                task.log += (
+                    f"MHC-II prediction failed for "
+                    f"{protein.protein_id}: {error}\n"
+                )
+                task.save()
+
+        task.log += (
+            "\nIEDB screening finished.\n"
+            f"B-cell: {bcell_success} succeeded, "
+            f"{bcell_failed} failed.\n"
+            f"MHC-I: {mhci_success} succeeded, "
+            f"{mhci_failed} failed.\n"
+            f"MHC-II: {mhcii_success} succeeded, "
+            f"{mhcii_failed} failed.\n"
+        )
+        task.save()
+
+        total_success = (
+            bcell_success + mhci_success + mhcii_success
+        )
+
+        if total_success == 0:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                "\nEvery IEDB API call failed - check network "
+                "access to the IEDB Tools API and that "
+                "IEDB_API_BASE_URL is reachable from this server.\n"
+            )
+            task.save()
+
+            return False
+
+        task.status = "completed"
+        task.completed_at = timezone.now()
+        task.exit_code = 0
+        task.log += (
+            "\nIEDB Epitope Prediction stage completed.\n"
         )
         task.save()
 

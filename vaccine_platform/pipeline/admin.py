@@ -14,6 +14,9 @@ from .models import (
     AntigenicityResult,
     AllergenicityResult,
     ToxicityResult,
+    BCellEpitopeResult,
+    MhcIEpitopeResult,
+    MhcIIEpitopeResult,
 )
 
 
@@ -305,4 +308,69 @@ class ToxicityResultAdmin(admin.ModelAdmin):
 
     search_fields = (
         "protein__protein_id",
+    )
+
+
+@admin.register(BCellEpitopeResult)
+class BCellEpitopeResultAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "protein",
+        "method",
+        "epitope_residue_count",
+        "total_residues_scored",
+        "has_epitope",
+    )
+
+    list_filter = (
+        "has_epitope",
+        "method",
+    )
+
+    search_fields = (
+        "protein__protein_id",
+    )
+
+
+@admin.register(MhcIEpitopeResult)
+class MhcIEpitopeResultAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "protein",
+        "allele",
+        "peptide",
+        "percentile_rank",
+        "is_strong_binder",
+    )
+
+    list_filter = (
+        "allele",
+        "is_strong_binder",
+    )
+
+    search_fields = (
+        "protein__protein_id",
+        "peptide",
+    )
+
+
+@admin.register(MhcIIEpitopeResult)
+class MhcIIEpitopeResultAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "protein",
+        "allele",
+        "peptide",
+        "percentile_rank",
+        "is_strong_binder",
+    )
+
+    list_filter = (
+        "allele",
+        "is_strong_binder",
+    )
+
+    search_fields = (
+        "protein__protein_id",
+        "peptide",
     )
