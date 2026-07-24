@@ -119,6 +119,38 @@ ANTIGENICITY_THRESHOLD = float(
     os.environ.get("ANTIGENICITY_THRESHOLD", "1.0")
 )
 
+# Allergenicity - homology-based screening against a curated allergen
+# database (e.g. AllergenOnline), per the FAO/WHO (2001) guidelines:
+# a protein is flagged as a potential allergen if it has >=35%
+# identity to a known allergen over an alignment of at least 80
+# amino acids, OR an exact match of 6+ contiguous amino acids.
+ALLERGEN_BLASTP_EXECUTABLE = os.environ.get(
+    "ALLERGEN_BLASTP_EXECUTABLE",
+    "blastp",
+)
+
+ALLERGEN_DATABASE = os.environ.get(
+    "ALLERGEN_DATABASE",
+    "/mnt/d/VaxiFlowData/allergen-db/allergenonline",
+)
+
+ALLERGEN_DATABASE_FASTA = os.environ.get(
+    "ALLERGEN_DATABASE_FASTA",
+    "/mnt/d/VaxiFlowData/allergen-db/allergenonline.fasta",
+)
+
+ALLERGEN_MIN_IDENTITY = float(
+    os.environ.get("ALLERGEN_MIN_IDENTITY", "35.0")
+)
+
+ALLERGEN_MIN_ALIGNMENT_LENGTH = int(
+    os.environ.get("ALLERGEN_MIN_ALIGNMENT_LENGTH", "80")
+)
+
+ALLERGEN_EXACT_MATCH_LENGTH = int(
+    os.environ.get("ALLERGEN_EXACT_MATCH_LENGTH", "6")
+)
+
 
 # -----------------------------------------------------------------------------
 # Installed Applications

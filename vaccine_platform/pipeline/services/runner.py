@@ -11,6 +11,7 @@ from pipeline.models import (
     GeneCluster,
     PsortbResult,
     PhobiusResult,
+    AntigenicityResult,
 )
 
 from pipeline.services.tools.kyte_doolittle import (
@@ -59,6 +60,14 @@ from pipeline.services.importers.phobius_importer import (
 
 from pipeline.services.importers.antigenicity_importer import (
     AntigenicityImporter,
+)
+
+from pipeline.services.tools.allergen import (
+    AllergenExecutor,
+)
+
+from pipeline.services.importers.allergenicity_importer import (
+    AllergenicityImporter,
 )
 
 from blast.services.service import BlastService
@@ -241,6 +250,25 @@ class PipelineRunner:
 
                 success = (
                     PipelineRunner._run_antigenicity_stage(
+                        workflow_run,
+                        task,
+                    )
+                )
+
+                if not success:
+
+                    workflow_run.status = "failed"
+                    workflow_run.completed_at = (
+                        timezone.now()
+                    )
+                    workflow_run.save()
+
+                    return
+
+            elif tool_name == "allergenicity":
+
+                success = (
+                    PipelineRunner._run_allergenicity_stage(
                         workflow_run,
                         task,
                     )
@@ -1503,6 +1531,213 @@ class PipelineRunner:
         task.exit_code = 0
         task.log += (
             "\nAntigenicity stage completed successfully.\n"
+        )
+        task.save()
+
+        return True
+
+    @staticmethod
+    def _run_allergenicity_stage(
+        workflow_run,
+        task,
+    ):
+        """
+        Screen essential, non-human-homologous, surface-exposed,
+        favorable-topology, antigenic proteins (candidates that
+        survived every prior filter) against a curated allergen
+        database using the FAO/WHO (2001) homology-based criteria.
+
+        Proteins flagged as potential allergens here are poor
+        vaccine candidates regardless of how well they scored on
+        every earlier stage.
+        """
+
+        task.status = "running"
+        task.started_at = timezone.now()
+        task.completed_at = None
+        task.exit_code = None
+        task.log = (
+            "Starting Allergenicity (FAO/WHO homology) stage.\n"
+        )
+        task.save()
+
+        panaroo_run = (
+            PanarooRun.objects.filter(
+                workflow_run=workflow_run,
+                status="completed",
+            )
+            .order_by("-completed_at")
+            .first()
+        )
+
+        if panaroo_run is None:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                "\nNo completed Panaroo run was found for this "
+                "workflow. Allergenicity screening requires a core "
+                "genome from Panaroo.\n"
+            )
+            task.save()
+
+            return False
+
+        essential_clusters = (
+            GeneCluster.objects.filter(
+                panaroo_run=panaroo_run,
+                is_core=True,
+                is_essential=True,
+            )
+            .prefetch_related("members__protein")
+        )
+
+        candidate_proteins = []
+
+        for cluster in essential_clusters:
+
+            member = (
+                cluster.members
+                .filter(protein__isnull=False)
+                .order_by("protein_id")
+                .first()
+            )
+
+            if member is not None:
+                candidate_proteins.append(member.protein)
+
+        excluded_for_human_homology = set(
+            BlastResult.objects.filter(
+                protein__in=candidate_proteins,
+                identity__gte=(
+                    settings.HUMAN_HOMOLOGY_MAX_IDENTITY
+                ),
+            ).values_list("protein_id", flat=True)
+        )
+
+        surface_exposed_protein_ids = set(
+            PsortbResult.objects.filter(
+                protein__in=candidate_proteins,
+                is_surface_exposed=True,
+            ).values_list("protein_id", flat=True)
+        )
+
+        favorable_topology_protein_ids = set(
+            PhobiusResult.objects.filter(
+                protein__in=candidate_proteins,
+                is_favorable_topology=True,
+            ).values_list("protein_id", flat=True)
+        )
+
+        antigenic_protein_ids = set(
+            AntigenicityResult.objects.filter(
+                protein__in=candidate_proteins,
+                is_antigenic=True,
+            ).values_list("protein_id", flat=True)
+        )
+
+        proteins_to_screen = [
+            protein
+            for protein in candidate_proteins
+            if protein.id not in excluded_for_human_homology
+            and protein.id in surface_exposed_protein_ids
+            and protein.id in favorable_topology_protein_ids
+            and protein.id in antigenic_protein_ids
+        ]
+
+        task.log += (
+            f"Essential core gene clusters: "
+            f"{essential_clusters.count()}\n"
+            f"Excluded for significant human homology: "
+            f"{len(excluded_for_human_homology)}\n"
+            f"Surface-exposed per PSORTb: "
+            f"{len(surface_exposed_protein_ids)}\n"
+            f"Favorable topology per Phobius: "
+            f"{len(favorable_topology_protein_ids)}\n"
+            f"Antigenic per Kolaskar-Tongaonkar: "
+            f"{len(antigenic_protein_ids)}\n"
+            f"Proteins to screen for allergenicity: "
+            f"{len(proteins_to_screen)}\n"
+        )
+        task.save()
+
+        if not proteins_to_screen:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                "\nNo candidates remained after all prior filters. "
+                "Nothing to screen for allergenicity.\n"
+            )
+            task.save()
+
+            return False
+
+        output_dir = (
+            Path(settings.MEDIA_ROOT)
+            / "pipeline_runs"
+            / f"run_{workflow_run.id}"
+            / "allergenicity"
+        )
+
+        query_fasta = AllergenExecutor.write_query_fasta(
+            proteins=proteins_to_screen,
+            output_dir=output_dir,
+        )
+
+        result = AllergenExecutor.run(
+            query_fasta=query_fasta,
+            output_dir=output_dir,
+        )
+
+        task.log += (
+            "\n"
+            f"{result['log']}\n"
+        )
+        task.save()
+
+        if result["exit_code"] != 0:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = result["exit_code"]
+            task.log += (
+                "\nAllergen BLASTP screening failed.\n"
+            )
+            task.save()
+
+            return False
+
+        kmer_set = AllergenicityImporter.build_kmer_set(
+            settings.ALLERGEN_DATABASE_FASTA
+        )
+
+        task.log += (
+            f"Built allergen k-mer reference set "
+            f"({len(kmer_set)} k-mers) from "
+            f"{settings.ALLERGEN_DATABASE_FASTA}\n"
+        )
+        task.save()
+
+        import_result = AllergenicityImporter.import_results(
+            proteins=proteins_to_screen,
+            output_file=result["output_file"],
+            kmer_set=kmer_set,
+        )
+
+        task.log += (
+            "\n"
+            f"{import_result['log']}\n"
+        )
+        task.save()
+
+        task.status = "completed"
+        task.completed_at = timezone.now()
+        task.exit_code = 0
+        task.log += (
+            "\nAllergenicity stage completed successfully.\n"
         )
         task.save()
 

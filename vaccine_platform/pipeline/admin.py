@@ -12,6 +12,7 @@ from .models import (
     PsortbResult,
     PhobiusResult,
     AntigenicityResult,
+    AllergenicityResult,
 )
 
 
@@ -261,4 +262,28 @@ class AntigenicityResultAdmin(admin.ModelAdmin):
 
     search_fields = (
         "protein__protein_id",
+    )
+
+
+@admin.register(AllergenicityResult)
+class AllergenicityResultAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "protein",
+        "best_subject_id",
+        "identity",
+        "has_sliding_window_hit",
+        "has_exact_match",
+        "is_allergen",
+    )
+
+    list_filter = (
+        "is_allergen",
+        "has_sliding_window_hit",
+        "has_exact_match",
+    )
+
+    search_fields = (
+        "protein__protein_id",
+        "best_subject_id",
     )

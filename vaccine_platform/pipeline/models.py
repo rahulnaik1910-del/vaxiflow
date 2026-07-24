@@ -532,4 +532,86 @@ class AntigenicityResult(models.Model):
             f"{round(self.average_propensity, 3)} "
             f"({'antigenic' if self.is_antigenic else 'not antigenic'})"
         )
+
+
+class AllergenicityResult(models.Model):
+    """
+    Stores the FAO/WHO (2001) homology-based allergenicity screening
+    result for one protein: BLASTP against a curated allergen
+    database (e.g. AllergenOnline) plus an exact short-peptide
+    match check, since AllerTOP has no downloadable binary or API to
+    integrate against.
+    """
+
+    protein = models.ForeignKey(
+        Protein,
+        on_delete=models.CASCADE,
+        related_name="allergenicity_results",
+    )
+
+    best_subject_id = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Allergen database entry ID of the best BLAST hit.",
+    )
+
+    identity = models.FloatField(
+        null=True,
+        blank=True,
+    )
+
+    alignment_length = models.IntegerField(
+        null=True,
+        blank=True,
+    )
+
+    evalue = models.FloatField(
+        null=True,
+        blank=True,
+    )
+
+    bit_score = models.FloatField(
+        null=True,
+        blank=True,
+    )
+
+    has_sliding_window_hit = models.BooleanField(
+        default=False,
+        help_text=(
+            "True if identity >= settings.ALLERGEN_MIN_IDENTITY "
+            "over an alignment >= "
+            "settings.ALLERGEN_MIN_ALIGNMENT_LENGTH amino acids "
+            "(the FAO/WHO 35%/80aa criterion)."
+        ),
+    )
+
+    has_exact_match = models.BooleanField(
+        default=False,
+        help_text=(
+            "True if this protein shares a contiguous "
+            "settings.ALLERGEN_EXACT_MATCH_LENGTH-mer (default 6) "
+            "with any sequence in the allergen database (the "
+            "FAO/WHO exact-match criterion)."
+        ),
+    )
+
+    is_allergen = models.BooleanField(
+        default=False,
+        help_text=(
+            "True if either has_sliding_window_hit or "
+            "has_exact_match is True - i.e. this protein is "
+            "flagged as a potential allergen and is a poor vaccine "
+            "candidate regardless of its other scores."
+        ),
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    def __str__(self):
+        return (
+            f"{self.protein.protein_id} -> "
+            f"{'allergen' if self.is_allergen else 'not allergen'}"
+        )
     
