@@ -614,4 +614,42 @@ class AllergenicityResult(models.Model):
             f"{self.protein.protein_id} -> "
             f"{'allergen' if self.is_allergen else 'not allergen'}"
         )
+
+
+class ToxicityResult(models.Model):
+    """
+    Stores the ToxinPred2 (Raghava lab) toxicity prediction for one
+    protein. Unlike VaxiJen/AllerTOP/Phobius, ToxinPred2 is a
+    genuinely pip-installable, verified-working tool - no fallback
+    needed for this stage.
+    """
+
+    protein = models.ForeignKey(
+        Protein,
+        on_delete=models.CASCADE,
+        related_name="toxicity_results",
+    )
+
+    ml_score = models.FloatField(
+        help_text="ToxinPred2's raw ML_Score output (0.0-1.0).",
+    )
+
+    is_toxic = models.BooleanField(
+        default=False,
+        help_text=(
+            "True if ToxinPred2 predicted 'Toxin' (ml_score >= "
+            "settings.TOXINPRED2_THRESHOLD, default 0.6)."
+        ),
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    def __str__(self):
+        return (
+            f"{self.protein.protein_id} -> "
+            f"{'toxic' if self.is_toxic else 'non-toxic'} "
+            f"({self.ml_score})"
+        )
     

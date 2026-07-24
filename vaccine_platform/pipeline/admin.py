@@ -13,6 +13,7 @@ from .models import (
     PhobiusResult,
     AntigenicityResult,
     AllergenicityResult,
+    ToxicityResult,
 )
 
 
@@ -286,4 +287,22 @@ class AllergenicityResultAdmin(admin.ModelAdmin):
     search_fields = (
         "protein__protein_id",
         "best_subject_id",
+    )
+
+
+@admin.register(ToxicityResult)
+class ToxicityResultAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "protein",
+        "ml_score",
+        "is_toxic",
+    )
+
+    list_filter = (
+        "is_toxic",
+    )
+
+    search_fields = (
+        "protein__protein_id",
     )

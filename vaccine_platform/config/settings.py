@@ -151,6 +151,22 @@ ALLERGEN_EXACT_MATCH_LENGTH = int(
     os.environ.get("ALLERGEN_EXACT_MATCH_LENGTH", "6")
 )
 
+# Toxicity - ToxinPred2 (Raghava lab), installed via pip. Unlike
+# VaxiJen/AllerTOP/Phobius, this is a genuinely installable,
+# verified-working tool - no fallback needed.
+TOXINPRED2_EXECUTABLE = os.environ.get(
+    "TOXINPRED2_EXECUTABLE",
+    "toxinpred2",
+)
+
+# 1: AAC-based Random Forest (fast), 2: Hybrid (slower, more
+# accurate). Matches the tool's own -m flag.
+TOXINPRED2_MODEL = os.environ.get("TOXINPRED2_MODEL", "1")
+
+TOXINPRED2_THRESHOLD = os.environ.get(
+    "TOXINPRED2_THRESHOLD", "0.6"
+)
+
 
 # -----------------------------------------------------------------------------
 # Installed Applications

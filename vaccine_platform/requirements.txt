@@ -5,3 +5,4 @@ django-extensions==4.1
 numpy==2.5.0
 sqlparse==0.5.5
 python-dotenv==1.0.1
+toxinpred2==1.1

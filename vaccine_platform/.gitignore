@@ -27,3 +27,6 @@ blast_data/
 
 # Local environment overrides
 .env
+
+# ToxinPred2 drops a working file in CWD regardless of -o
+Sequence_*
