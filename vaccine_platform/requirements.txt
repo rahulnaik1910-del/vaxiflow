@@ -1,6 +1,6 @@
 asgiref==3.11.1
 biopython==1.87
-Django==6.0.6
+Django==5.2.16
 django-extensions==4.1
 numpy==2.5.0
 sqlparse==0.5.5

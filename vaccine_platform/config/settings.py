@@ -172,7 +172,7 @@ TOXINPRED2_THRESHOLD = os.environ.get(
 # a local database, matching the "offload via remote API" design.
 IEDB_API_BASE_URL = os.environ.get(
     "IEDB_API_BASE_URL",
-    "http://tools-cluster-interface.iedb.org/tools_api",
+    "https://tools-cluster-interface.iedb.org/tools_api",
 )
 
 IEDB_REQUEST_TIMEOUT = int(
