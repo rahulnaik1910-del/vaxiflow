@@ -97,6 +97,10 @@ from pipeline.services.importers.mhcii_epitope_importer import (
     MhcIIEpitopeImporter,
 )
 
+from pipeline.services.importers.candidate_ranking_importer import (
+    CandidateRankingImporter,
+)
+
 from blast.services.service import BlastService
 from blast.models import BlastResult
 
@@ -334,6 +338,25 @@ class PipelineRunner:
 
                 success = (
                     PipelineRunner._run_iedb_stage(
+                        workflow_run,
+                        task,
+                    )
+                )
+
+                if not success:
+
+                    workflow_run.status = "failed"
+                    workflow_run.completed_at = (
+                        timezone.now()
+                    )
+                    workflow_run.save()
+
+                    return
+
+            elif tool_name == "ai_ranking":
+
+                success = (
+                    PipelineRunner._run_ai_ranking_stage(
                         workflow_run,
                         task,
                     )
@@ -2282,6 +2305,176 @@ class PipelineRunner:
         task.exit_code = 0
         task.log += (
             "\nIEDB Epitope Prediction stage completed.\n"
+        )
+        task.save()
+
+        return True
+
+    @staticmethod
+    def _run_ai_ranking_stage(
+        workflow_run,
+        task,
+    ):
+        """
+        Score and rank the final surviving candidates - proteins
+        that passed every prior filter - using the transparent
+        composite scorer (see settings.RANKING_SCORER and
+        pipeline.services.tools.candidate_scorer.CompositeScorer).
+
+        This is a pure calculation over already-computed results
+        from every prior stage, so it never needs an external tool
+        and always runs to completion once there are candidates to
+        rank.
+        """
+
+        task.status = "running"
+        task.started_at = timezone.now()
+        task.completed_at = None
+        task.exit_code = None
+        task.log = (
+            "Starting AI Candidate Ranking stage.\n"
+        )
+        task.save()
+
+        panaroo_run = (
+            PanarooRun.objects.filter(
+                workflow_run=workflow_run,
+                status="completed",
+            )
+            .order_by("-completed_at")
+            .first()
+        )
+
+        if panaroo_run is None:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                "\nNo completed Panaroo run was found for this "
+                "workflow. Ranking requires a core genome from "
+                "Panaroo.\n"
+            )
+            task.save()
+
+            return False
+
+        essential_clusters = (
+            GeneCluster.objects.filter(
+                panaroo_run=panaroo_run,
+                is_core=True,
+                is_essential=True,
+            )
+            .prefetch_related("members__protein")
+        )
+
+        candidate_proteins = []
+
+        for cluster in essential_clusters:
+
+            member = (
+                cluster.members
+                .filter(protein__isnull=False)
+                .order_by("protein_id")
+                .first()
+            )
+
+            if member is not None:
+                candidate_proteins.append(member.protein)
+
+        excluded_for_human_homology = set(
+            BlastResult.objects.filter(
+                protein__in=candidate_proteins,
+                identity__gte=(
+                    settings.HUMAN_HOMOLOGY_MAX_IDENTITY
+                ),
+            ).values_list("protein_id", flat=True)
+        )
+
+        surface_exposed_protein_ids = set(
+            PsortbResult.objects.filter(
+                protein__in=candidate_proteins,
+                is_surface_exposed=True,
+            ).values_list("protein_id", flat=True)
+        )
+
+        favorable_topology_protein_ids = set(
+            PhobiusResult.objects.filter(
+                protein__in=candidate_proteins,
+                is_favorable_topology=True,
+            ).values_list("protein_id", flat=True)
+        )
+
+        antigenic_protein_ids = set(
+            AntigenicityResult.objects.filter(
+                protein__in=candidate_proteins,
+                is_antigenic=True,
+            ).values_list("protein_id", flat=True)
+        )
+
+        excluded_for_allergenicity = set(
+            AllergenicityResult.objects.filter(
+                protein__in=candidate_proteins,
+                is_allergen=True,
+            ).values_list("protein_id", flat=True)
+        )
+
+        excluded_for_toxicity = set(
+            ToxicityResult.objects.filter(
+                protein__in=candidate_proteins,
+                is_toxic=True,
+            ).values_list("protein_id", flat=True)
+        )
+
+        final_candidates = [
+            protein
+            for protein in candidate_proteins
+            if protein.id not in excluded_for_human_homology
+            and protein.id in surface_exposed_protein_ids
+            and protein.id in favorable_topology_protein_ids
+            and protein.id in antigenic_protein_ids
+            and protein.id not in excluded_for_allergenicity
+            and protein.id not in excluded_for_toxicity
+        ]
+
+        task.log += (
+            f"Essential core gene clusters: "
+            f"{essential_clusters.count()}\n"
+            f"Final candidates surviving every filter: "
+            f"{len(final_candidates)}\n"
+        )
+        task.save()
+
+        if not final_candidates:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                "\nNo candidates remained after all prior filters. "
+                "Nothing to rank.\n"
+            )
+            task.save()
+
+            return False
+
+        import_result = CandidateRankingImporter.score_and_rank(
+            workflow_run=workflow_run,
+            proteins=final_candidates,
+        )
+
+        task.log += (
+            "\n"
+            f"{import_result['log']}\n"
+        )
+        task.save()
+
+        task.status = "completed"
+        task.completed_at = timezone.now()
+        task.exit_code = 0
+        task.log += (
+            "\nAI Candidate Ranking stage completed "
+            "successfully.\n"
         )
         task.save()
 

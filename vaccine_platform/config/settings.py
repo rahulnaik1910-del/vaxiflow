@@ -228,6 +228,51 @@ IEDB_MHCII_PERCENTILE_THRESHOLD = float(
     os.environ.get("IEDB_MHCII_PERCENTILE_THRESHOLD", "10.0")
 )
 
+# AI Candidate Ranking - a transparent, explainable composite scoring
+# function, NOT a trained ML model (there is no labeled dataset of
+# validated vaccine candidates to train one honestly). Architected
+# with a named `RANKING_SCORER` seam so a genuine trained model can
+# be swapped in later (see pipeline.services.tools.candidate_scorer)
+# without redesigning the pipeline.
+RANKING_SCORER = os.environ.get("RANKING_SCORER", "composite")
+
+# Equal weighting by default - this is a documented heuristic
+# default, not a value tuned against real outcomes (no labeled data
+# exists to tune against). Override via env as a comma-separated
+# "component:weight" list if you have expert-informed weights.
+RANKING_COMPONENT_WEIGHTS = {
+    "antigenicity": 0.2,
+    "localization": 0.2,
+    "epitope": 0.2,
+    "mhci_coverage": 0.2,
+    "mhcii_coverage": 0.2,
+}
+
+_ranking_weights_override = os.environ.get(
+    "RANKING_COMPONENT_WEIGHTS", ""
+)
+
+if _ranking_weights_override:
+
+    RANKING_COMPONENT_WEIGHTS = {}
+
+    for _pair in _ranking_weights_override.split(","):
+        _key, _value = _pair.split(":")
+        RANKING_COMPONENT_WEIGHTS[_key.strip()] = float(_value)
+
+# Plausible min/max whole-protein Kolaskar-Tongaonkar average
+# propensity, used to normalize that score into a 0-1 range for
+# the composite ranking (residue-level scale extremes are ~0.776 to
+# ~1.412; whole-protein averages cluster more centrally, so a
+# narrower 0.8-1.3 window is used).
+RANKING_ANTIGENICITY_MIN = float(
+    os.environ.get("RANKING_ANTIGENICITY_MIN", "0.8")
+)
+
+RANKING_ANTIGENICITY_MAX = float(
+    os.environ.get("RANKING_ANTIGENICITY_MAX", "1.3")
+)
+
 
 # -----------------------------------------------------------------------------
 # Installed Applications

@@ -17,6 +17,7 @@ from .models import (
     BCellEpitopeResult,
     MhcIEpitopeResult,
     MhcIIEpitopeResult,
+    CandidateRankingResult,
 )
 
 
@@ -373,4 +374,25 @@ class MhcIIEpitopeResultAdmin(admin.ModelAdmin):
     search_fields = (
         "protein__protein_id",
         "peptide",
+    )
+
+
+@admin.register(CandidateRankingResult)
+class CandidateRankingResultAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "rank",
+        "protein",
+        "workflow_run",
+        "final_score",
+        "scorer_name",
+    )
+
+    list_filter = (
+        "scorer_name",
+        "workflow_run",
+    )
+
+    search_fields = (
+        "protein__protein_id",
     )

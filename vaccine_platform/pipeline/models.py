@@ -822,3 +822,79 @@ class MhcIIEpitopeResult(models.Model):
     def __str__(self):
         return f"{self.protein.protein_id} -> {self.peptide} ({self.allele})"
     
+
+class CandidateRankingResult(models.Model):
+    """
+    Stores the final composite ranking score for one protein within
+    one WorkflowRun - the consolidated output of every prior stage,
+    used to produce the ranked candidate list for the Interactive
+    Report.
+
+    This is a transparent, explainable weighted composite score, NOT
+    a trained ML model - there is no labeled dataset of validated
+    vaccine candidates to train one honestly. `scorer_name` records
+    which scoring method produced a result, so a genuine trained
+    model can be introduced later (see settings.RANKING_SCORER and
+    pipeline.services.tools.candidate_scorer) without losing the
+    ability to tell old and new results apart.
+    """
+
+    workflow_run = models.ForeignKey(
+        WorkflowRun,
+        on_delete=models.CASCADE,
+        related_name="candidate_rankings",
+    )
+
+    protein = models.ForeignKey(
+        Protein,
+        on_delete=models.CASCADE,
+        related_name="candidate_rankings",
+    )
+
+    scorer_name = models.CharField(
+        max_length=50,
+        default="composite",
+    )
+
+    antigenicity_component = models.FloatField(default=0.0)
+
+    localization_component = models.FloatField(default=0.0)
+
+    epitope_component = models.FloatField(default=0.0)
+
+    mhci_coverage_component = models.FloatField(default=0.0)
+
+    mhcii_coverage_component = models.FloatField(default=0.0)
+
+    final_score = models.FloatField(
+        help_text=(
+            "Weighted sum of the above components, per "
+            "settings.RANKING_COMPONENT_WEIGHTS. Higher is better."
+        ),
+    )
+
+    rank = models.PositiveIntegerField(
+        help_text=(
+            "1-indexed rank within this workflow_run, by "
+            "final_score descending."
+        ),
+    )
+
+    explanation = models.TextField(
+        blank=True,
+        help_text="Human-readable breakdown of the score.",
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    class Meta:
+        unique_together = ("workflow_run", "protein")
+        ordering = ["rank"]
+
+    def __str__(self):
+        return (
+            f"#{self.rank} {self.protein.protein_id} "
+            f"({round(self.final_score, 3)})"
+        )
