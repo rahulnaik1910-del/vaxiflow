@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+
+        <h1>🎯 {{ protein.protein_id }}</h1>
+
+        <p class="text-muted">
+            {{ protein.product|default:"No annotation" }}
+            &nbsp;|&nbsp; Rank #{{ ranking.rank }}
+            &nbsp;|&nbsp; Score {{ ranking.final_score|floatformat:3 }}
+        </p>
+
+    </div>
+
+    <a href="{% url 'candidate_report' protein.analysis.project.id %}" class="btn btn-secondary">
+        ← Back to Report
+    </a>
+
+</div>
+
+<hr>
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-body">
+
+        <h3>📊 Composite Score Breakdown</h3>
+
+        <hr>
+
+        <pre class="mb-0">{{ ranking.explanation }}</pre>
+
+    </div>
+
+</div>
+
+<div class="row">
+
+    <div class="col-md-6">
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-body">
+
+                <h4>🧫 Localization (PSORTb)</h4>
+
+                <hr>
+
+                {% if psortb %}
+                <p>
+                    <strong>{{ psortb.localization }}</strong>
+                    (score {{ psortb.score|floatformat:2 }})<br>
+                    Surface-exposed: {{ psortb.is_surface_exposed|yesno:"Yes,No" }}
+                </p>
+                {% else %}
+                <p class="text-muted mb-0">No result.</p>
+                {% endif %}
+
+            </div>
+
+        </div>
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-body">
+
+                <h4>🧬 Topology (Phobius)</h4>
+
+                <hr>
+
+                {% if phobius %}
+                <p>
+                    TM helices: {{ phobius.tm_helix_count }}<br>
+                    Signal peptide: {{ phobius.has_signal_peptide|yesno:"Yes,No" }}<br>
+                    Source: {{ phobius.get_prediction_source_display }}
+                </p>
+                {% else %}
+                <p class="text-muted mb-0">No result.</p>
+                {% endif %}
+
+            </div>
+
+        </div>
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-body">
+
+                <h4>🧪 Antigenicity (Kolaskar-Tongaonkar)</h4>
+
+                <hr>
+
+                {% if antigenicity %}
+                <p>
+                    Average propensity: {{ antigenicity.average_propensity|floatformat:3 }}<br>
+                    Antigenic residue fraction: {{ antigenicity.antigenic_residue_fraction|floatformat:2 }}
+                </p>
+                {% else %}
+                <p class="text-muted mb-0">No result.</p>
+                {% endif %}
+
+            </div>
+
+        </div>
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-body">
+
+                <h4>⚠️ Allergenicity &amp; Toxicity</h4>
+
+                <hr>
+
+                <p>
+                    Allergenicity:
+                    {% if allergenicity %}
+                        {{ allergenicity.is_allergen|yesno:"Flagged,Clear" }}
+                    {% else %}
+                        No result
+                    {% endif %}
+                    <br>
+                    Toxicity:
+                    {% if toxicity %}
+                        {{ toxicity.is_toxic|yesno:"Flagged,Clear" }}
+                        (score {{ toxicity.ml_score|floatformat:3 }})
+                    {% else %}
+                        No result
+                    {% endif %}
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-6">
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-body">
+
+                <h4>🔵 B-cell Epitopes</h4>
+
+                <hr>
+
+                {% if bcell %}
+                <p>
+                    {{ bcell.epitope_residue_count }} /
+                    {{ bcell.total_residues_scored }} residues
+                    predicted as epitope
+                    ({{ bcell.epitope_fraction|floatformat:2 }})
+                    <br>
+                    Method: {{ bcell.method }}
+                </p>
+                {% else %}
+                <p class="text-muted mb-0">No result.</p>
+                {% endif %}
+
+            </div>
+
+        </div>
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-body">
+
+                <h4>🟢 Strong MHC-I Binders</h4>
+
+                <hr>
+
+                {% if mhci_binders %}
+                <table class="table table-sm">
+                    <thead>
+                        <tr><th>Peptide</th><th>Allele</th><th>Percentile</th></tr>
+                    </thead>
+                    <tbody>
+                    {% for binder in mhci_binders %}
+                        <tr>
+                            <td>{{ binder.peptide }}</td>
+                            <td>{{ binder.allele }}</td>
+                            <td>{{ binder.percentile_rank|floatformat:2 }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-muted mb-0">No strong binders found.</p>
+                {% endif %}
+
+            </div>
+
+        </div>
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-body">
+
+                <h4>🟡 Strong MHC-II Binders</h4>
+
+                <hr>
+
+                {% if mhcii_binders %}
+                <table class="table table-sm">
+                    <thead>
+                        <tr><th>Peptide</th><th>Allele</th><th>Percentile</th></tr>
+                    </thead>
+                    <tbody>
+                    {% for binder in mhcii_binders %}
+                        <tr>
+                            <td>{{ binder.peptide }}</td>
+                            <td>{{ binder.allele }}</td>
+                            <td>{{ binder.percentile_rank|floatformat:2 }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-muted mb-0">No strong binders found.</p>
+                {% endif %}
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

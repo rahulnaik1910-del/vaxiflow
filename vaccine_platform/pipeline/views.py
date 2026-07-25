@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.shortcuts import (
     get_object_or_404,
     redirect,
+    render,
 )
 
 from users.models import Project
@@ -11,6 +12,7 @@ from users.models import Project
 from pipeline.models import (
     Workflow,
     WorkflowRun,
+    CandidateRankingResult,
 )
 
 from pipeline.services.task_manager import TaskManager
@@ -119,4 +121,142 @@ def start_workflow(request, project_id):
     return redirect(
         "project_detail",
         project_id=project.id,
+    )
+
+def candidate_report(request, project_id):
+    """
+    Interactive Report: the final ranked vaccine candidate list for
+    a project's most recent completed workflow run.
+    """
+
+    project = get_object_or_404(
+        Project,
+        id=project_id,
+    )
+
+    workflow_run = (
+        WorkflowRun.objects.filter(
+            project=project,
+            candidate_rankings__isnull=False,
+        )
+        .order_by("-completed_at")
+        .distinct()
+        .first()
+    )
+
+    rankings = []
+
+    if workflow_run:
+
+        rankings = (
+            CandidateRankingResult.objects.filter(
+                workflow_run=workflow_run,
+            )
+            .select_related(
+                "protein",
+            )
+            .order_by("rank")
+        )
+
+    context = {
+
+        "project": project,
+
+        "workflow_run": workflow_run,
+
+        "rankings": rankings,
+
+    }
+
+    return render(
+        request,
+        "pipeline/report.html",
+        context,
+    )
+
+
+def candidate_detail(request, ranking_id):
+    """
+    Full stage-by-stage breakdown for a single ranked candidate.
+    """
+
+    ranking = get_object_or_404(
+        CandidateRankingResult,
+        id=ranking_id,
+    )
+
+    protein = ranking.protein
+
+    antigenicity = (
+        protein.antigenicity_results
+        .order_by("-created_at")
+        .first()
+    )
+
+    psortb = (
+        protein.psortb_results
+        .order_by("-created_at")
+        .first()
+    )
+
+    phobius = (
+        protein.phobius_results
+        .order_by("-created_at")
+        .first()
+    )
+
+    allergenicity = (
+        protein.allergenicity_results
+        .order_by("-created_at")
+        .first()
+    )
+
+    toxicity = (
+        protein.toxicity_results
+        .order_by("-created_at")
+        .first()
+    )
+
+    bcell = getattr(protein, "bcell_epitope_result", None)
+
+    mhci_binders = (
+        protein.mhci_epitope_results.filter(
+            is_strong_binder=True,
+        ).order_by("percentile_rank")
+    )
+
+    mhcii_binders = (
+        protein.mhcii_epitope_results.filter(
+            is_strong_binder=True,
+        ).order_by("percentile_rank")
+    )
+
+    context = {
+
+        "ranking": ranking,
+
+        "protein": protein,
+
+        "antigenicity": antigenicity,
+
+        "psortb": psortb,
+
+        "phobius": phobius,
+
+        "allergenicity": allergenicity,
+
+        "toxicity": toxicity,
+
+        "bcell": bcell,
+
+        "mhci_binders": mhci_binders,
+
+        "mhcii_binders": mhcii_binders,
+
+    }
+
+    return render(
+        request,
+        "pipeline/candidate_detail.html",
+        context,
     )
