@@ -62,7 +62,7 @@ class PanarooExecutor:
                 "-o",
                 str(output_dir),
                 "--clean-mode",
-                "strict",
+                settings.PANAROO_CLEAN_MODE,
             ]
         )
 

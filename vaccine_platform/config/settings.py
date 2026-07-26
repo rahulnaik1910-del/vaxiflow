@@ -53,6 +53,15 @@ PANAROO_EXECUTABLE = os.environ.get(
     "/home/rahul/miniconda3/envs/vaxiflow/bin/panaroo",
 )
 
+# "strict" (Panaroo's own default) can fail with "Nearly all
+# clusters have been trimmed!" on projects with few genomes/genes
+# (confirmed during testing - our own minimum requirement is just 2
+# genomes). "sensitive" is more tolerant of small gene sets at some
+# cost to filtering aggressiveness on large, noisy datasets.
+PANAROO_CLEAN_MODE = os.environ.get(
+    "PANAROO_CLEAN_MODE", "sensitive"
+)
+
 PANAROO_MIN_GENOMES = int(
     os.environ.get("PANAROO_MIN_GENOMES", "2")
 )
