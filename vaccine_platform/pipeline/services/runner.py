@@ -1,5 +1,6 @@
 import os
 import shutil
+import glob
 from pathlib import Path
 
 from django.conf import settings
@@ -750,6 +751,52 @@ class PipelineRunner:
         return True
 
     @staticmethod
+    def _get_candidate_clusters(workflow_run, panaroo_run):
+        """
+        Returns the queryset of core GeneCluster rows that every
+        stage downstream of DEG should treat as candidates.
+
+        If the DEG stage actually completed for this workflow_run,
+        only clusters it confirmed essential (is_essential=True)
+        are returned - normal behavior.
+
+        If DEG was skipped (e.g. no DEG_DATABASE configured), every
+        core cluster is returned instead. Essentiality is UNKNOWN
+        in that case, not confirmed false - excluding clusters based
+        on an unset is_essential flag would silently and incorrectly
+        treat "unscreened" as "not essential", which is scientifically
+        wrong. Skipping DEG should widen what reaches later stages,
+        not quietly zero it out.
+        """
+
+        deg_task = (
+            WorkflowTask.objects.filter(
+                workflow_run=workflow_run,
+                stage__tool_name="deg_filter",
+            )
+            .order_by("-id")
+            .first()
+        )
+
+        deg_ran = (
+            deg_task is not None
+            and deg_task.status == "completed"
+        )
+
+        if deg_ran:
+
+            return GeneCluster.objects.filter(
+                panaroo_run=panaroo_run,
+                is_core=True,
+                is_essential=True,
+            )
+
+        return GeneCluster.objects.filter(
+            panaroo_run=panaroo_run,
+            is_core=True,
+        )
+
+    @staticmethod
     def _run_deg_filter_stage(
         workflow_run,
         task,
@@ -797,6 +844,29 @@ class PipelineRunner:
             task.save()
 
             return False
+
+        deg_database_available = bool(
+            glob.glob(f"{settings.DEG_DATABASE}.*")
+        )
+
+        if not deg_database_available:
+
+            task.status = "skipped"
+            task.completed_at = timezone.now()
+            task.exit_code = 0
+            task.log += (
+                "\nDEG_DATABASE not found at "
+                f"{settings.DEG_DATABASE} (no files matching that "
+                "prefix) - skipping essential gene screening.\n"
+                "Every core gene from Panaroo will be treated as "
+                "an UNSCREENED candidate by later stages (not "
+                "confirmed essential, but not excluded either) "
+                "until a real DEG database is configured and this "
+                "stage is re-run.\n"
+            )
+            task.save()
+
+            return True
 
         core_clusters = (
             GeneCluster.objects.filter(
@@ -968,10 +1038,8 @@ class PipelineRunner:
             return False
 
         essential_clusters = (
-            GeneCluster.objects.filter(
-                panaroo_run=panaroo_run,
-                is_core=True,
-                is_essential=True,
+            PipelineRunner._get_candidate_clusters(
+                workflow_run, panaroo_run
             )
             .prefetch_related("members__protein")
         )
@@ -1116,10 +1184,8 @@ class PipelineRunner:
             return False
 
         essential_clusters = (
-            GeneCluster.objects.filter(
-                panaroo_run=panaroo_run,
-                is_core=True,
-                is_essential=True,
+            PipelineRunner._get_candidate_clusters(
+                workflow_run, panaroo_run
             )
             .prefetch_related("members__protein")
         )
@@ -1297,10 +1363,8 @@ class PipelineRunner:
             return False
 
         essential_clusters = (
-            GeneCluster.objects.filter(
-                panaroo_run=panaroo_run,
-                is_core=True,
-                is_essential=True,
+            PipelineRunner._get_candidate_clusters(
+                workflow_run, panaroo_run
             )
             .prefetch_related("members__protein")
         )
@@ -1524,10 +1588,8 @@ class PipelineRunner:
             return False
 
         essential_clusters = (
-            GeneCluster.objects.filter(
-                panaroo_run=panaroo_run,
-                is_core=True,
-                is_essential=True,
+            PipelineRunner._get_candidate_clusters(
+                workflow_run, panaroo_run
             )
             .prefetch_related("members__protein")
         )
@@ -1673,10 +1735,8 @@ class PipelineRunner:
             return False
 
         essential_clusters = (
-            GeneCluster.objects.filter(
-                panaroo_run=panaroo_run,
-                is_core=True,
-                is_essential=True,
+            PipelineRunner._get_candidate_clusters(
+                workflow_run, panaroo_run
             )
             .prefetch_related("members__protein")
         )
@@ -1876,10 +1936,8 @@ class PipelineRunner:
             return False
 
         essential_clusters = (
-            GeneCluster.objects.filter(
-                panaroo_run=panaroo_run,
-                is_core=True,
-                is_essential=True,
+            PipelineRunner._get_candidate_clusters(
+                workflow_run, panaroo_run
             )
             .prefetch_related("members__protein")
         )
@@ -2089,10 +2147,8 @@ class PipelineRunner:
             return False
 
         essential_clusters = (
-            GeneCluster.objects.filter(
-                panaroo_run=panaroo_run,
-                is_core=True,
-                is_essential=True,
+            PipelineRunner._get_candidate_clusters(
+                workflow_run, panaroo_run
             )
             .prefetch_related("members__protein")
         )
@@ -2360,10 +2416,8 @@ class PipelineRunner:
             return False
 
         essential_clusters = (
-            GeneCluster.objects.filter(
-                panaroo_run=panaroo_run,
-                is_core=True,
-                is_essential=True,
+            PipelineRunner._get_candidate_clusters(
+                workflow_run, panaroo_run
             )
             .prefetch_related("members__protein")
         )
