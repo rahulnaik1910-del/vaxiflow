@@ -751,6 +751,28 @@ class PipelineRunner:
         return True
 
     @staticmethod
+    def _deg_was_screened(workflow_run):
+        """
+        True if the DEG (Essential Gene Filter) stage actually
+        completed for this workflow_run - False if it was skipped
+        (e.g. no DEG_DATABASE configured) or never ran.
+        """
+
+        deg_task = (
+            WorkflowTask.objects.filter(
+                workflow_run=workflow_run,
+                stage__tool_name="deg_filter",
+            )
+            .order_by("-id")
+            .first()
+        )
+
+        return (
+            deg_task is not None
+            and deg_task.status == "completed"
+        )
+
+    @staticmethod
     def _get_candidate_clusters(workflow_run, panaroo_run):
         """
         Returns the queryset of core GeneCluster rows that every
@@ -769,21 +791,7 @@ class PipelineRunner:
         not quietly zero it out.
         """
 
-        deg_task = (
-            WorkflowTask.objects.filter(
-                workflow_run=workflow_run,
-                stage__tool_name="deg_filter",
-            )
-            .order_by("-id")
-            .first()
-        )
-
-        deg_ran = (
-            deg_task is not None
-            and deg_task.status == "completed"
-        )
-
-        if deg_ran:
+        if PipelineRunner._deg_was_screened(workflow_run):
 
             return GeneCluster.objects.filter(
                 panaroo_run=panaroo_run,
@@ -2512,9 +2520,25 @@ class PipelineRunner:
 
             return False
 
+        deg_screened = PipelineRunner._deg_was_screened(
+            workflow_run
+        )
+
+        if not deg_screened:
+
+            task.log += (
+                "\nNOTE: DEG essential-gene screening was SKIPPED "
+                "for this run (no database configured). "
+                "Essentiality is UNKNOWN for these candidates, not "
+                "confirmed - this will be flagged in the ranking "
+                "explanation and the report.\n"
+            )
+            task.save()
+
         import_result = CandidateRankingImporter.score_and_rank(
             workflow_run=workflow_run,
             proteins=final_candidates,
+            deg_screened=deg_screened,
         )
 
         task.log += (

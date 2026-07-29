@@ -9,11 +9,21 @@ from pipeline.services.tools.candidate_scorer import (
 class CandidateRankingImporter:
 
     @staticmethod
-    def score_and_rank(workflow_run, proteins):
+    def score_and_rank(workflow_run, proteins, deg_screened=True):
         """
-        workflow_run: pipeline.models.WorkflowRun
-        proteins:     list of Protein instances to score (the final
-                      surviving candidates from every prior stage).
+        workflow_run:  pipeline.models.WorkflowRun
+        proteins:      list of Protein instances to score (the
+                       final surviving candidates from every prior
+                       stage).
+        deg_screened:  bool - False if the DEG essential-gene
+                       filter stage was skipped for this run (no
+                       database configured). When False, every
+                       created CandidateRankingResult is flagged
+                       accordingly and its explanation is prefixed
+                       with a clear disclosure, so nobody
+                       downstream (admin, report, exports) can
+                       mistake an unscreened candidate for a
+                       validated essential gene.
 
         Scores every protein with the configured scorer
         (settings.RANKING_SCORER - currently always "composite"),
@@ -52,11 +62,26 @@ class CandidateRankingImporter:
 
             components = result["components"]
 
+            explanation = result["explanation"]
+
+            if not deg_screened:
+
+                explanation = (
+                    "*** DEG essential-gene screening was SKIPPED "
+                    "for this run (no database configured) - this "
+                    "candidate's essentiality was NOT confirmed, "
+                    "only passed through unscreened. Do not treat "
+                    "as a validated essential gene until DEG "
+                    "screening is re-run with a real database. "
+                    "***\n\n"
+                ) + explanation
+
             ranking_objects.append(
                 CandidateRankingResult(
                     workflow_run=workflow_run,
                     protein=protein,
                     scorer_name=settings.RANKING_SCORER,
+                    deg_screened=deg_screened,
                     antigenicity_component=components[
                         "antigenicity"
                     ],
@@ -72,7 +97,7 @@ class CandidateRankingImporter:
                     ],
                     final_score=result["final_score"],
                     rank=rank,
-                    explanation=result["explanation"],
+                    explanation=explanation,
                 )
             )
 
@@ -84,6 +109,13 @@ class CandidateRankingImporter:
             f"Scored and ranked {len(created)} candidates using "
             f"the '{settings.RANKING_SCORER}' scorer.",
         ]
+
+        if not deg_screened:
+
+            log_lines.append(
+                "DEG screening was skipped for this run - all "
+                "ranked candidates are flagged deg_screened=False."
+            )
 
         if created:
 

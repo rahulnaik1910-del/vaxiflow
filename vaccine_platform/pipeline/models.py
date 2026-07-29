@@ -856,6 +856,18 @@ class CandidateRankingResult(models.Model):
         default="composite",
     )
 
+    deg_screened = models.BooleanField(
+        default=True,
+        help_text=(
+            "False if the DEG essential-gene screening stage was "
+            "skipped for this workflow_run (no database "
+            "configured) - if so, this candidate's essentiality "
+            "was never confirmed, only assumed as a widened, "
+            "unscreened pass-through. Always check this before "
+            "treating a candidate as a validated essential gene."
+        ),
+    )
+
     antigenicity_component = models.FloatField(default=0.0)
 
     localization_component = models.FloatField(default=0.0)

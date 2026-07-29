@@ -24,6 +24,18 @@
 
 <hr>
 
+{% if ranking.deg_screened == False %}
+
+<div class="alert alert-warning" role="alert">
+
+    ⚠️ <strong>DEG essential-gene screening was skipped for this run.</strong>
+    This candidate's essentiality was not confirmed - it was passed through
+    unscreened, not validated as essential.
+
+</div>
+
+{% endif %}
+
 <div class="card shadow-sm mb-4">
 
     <div class="card-body">

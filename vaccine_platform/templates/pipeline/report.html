@@ -58,6 +58,20 @@
 
 </div>
 
+{% if rankings.0.deg_screened == False %}
+
+<div class="alert alert-warning" role="alert">
+
+    ⚠️ <strong>DEG essential-gene screening was skipped for this run</strong>
+    (no database was configured). None of the candidates below have had their
+    essentiality confirmed - they are unscreened pass-throughs, not validated
+    essential genes. Re-run the pipeline with a real DEG database before
+    treating these results as final.
+
+</div>
+
+{% endif %}
+
 <div class="card shadow">
 
     <div class="card-body">

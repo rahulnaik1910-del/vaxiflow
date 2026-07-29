@@ -386,10 +386,12 @@ class CandidateRankingResultAdmin(admin.ModelAdmin):
         "workflow_run",
         "final_score",
         "scorer_name",
+        "deg_screened",
     )
 
     list_filter = (
         "scorer_name",
+        "deg_screened",
         "workflow_run",
     )
 
