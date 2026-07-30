@@ -72,6 +72,19 @@
 
 {% endif %}
 
+{% if rankings.0.allergenicity_screened == False %}
+
+<div class="alert alert-warning" role="alert">
+
+    ⚠️ <strong>Allergenicity screening was skipped for this run</strong>
+    (no allergen database was configured). None of the candidates below have
+    been confirmed non-allergenic - re-run the pipeline with a real allergen
+    database before treating these results as final.
+
+</div>
+
+{% endif %}
+
 <div class="card shadow">
 
     <div class="card-body">

@@ -868,6 +868,17 @@ class CandidateRankingResult(models.Model):
         ),
     )
 
+    allergenicity_screened = models.BooleanField(
+        default=True,
+        help_text=(
+            "False if the Allergenicity screening stage was "
+            "skipped for this workflow_run (no allergen database "
+            "configured) - if so, this candidate has NOT been "
+            "confirmed non-allergenic, only passed through "
+            "unscreened."
+        ),
+    )
+
     antigenicity_component = models.FloatField(default=0.0)
 
     localization_component = models.FloatField(default=0.0)

@@ -9,7 +9,12 @@ from pipeline.services.tools.candidate_scorer import (
 class CandidateRankingImporter:
 
     @staticmethod
-    def score_and_rank(workflow_run, proteins, deg_screened=True):
+    def score_and_rank(
+        workflow_run,
+        proteins,
+        deg_screened=True,
+        allergenicity_screened=True,
+    ):
         """
         workflow_run:  pipeline.models.WorkflowRun
         proteins:      list of Protein instances to score (the
@@ -17,13 +22,16 @@ class CandidateRankingImporter:
                        stage).
         deg_screened:  bool - False if the DEG essential-gene
                        filter stage was skipped for this run (no
-                       database configured). When False, every
-                       created CandidateRankingResult is flagged
-                       accordingly and its explanation is prefixed
-                       with a clear disclosure, so nobody
-                       downstream (admin, report, exports) can
-                       mistake an unscreened candidate for a
-                       validated essential gene.
+                       database configured).
+        allergenicity_screened: bool - False if the Allergenicity
+                       stage was skipped for this run (no allergen
+                       database configured).
+
+        When either flag is False, every created
+        CandidateRankingResult is flagged accordingly and its
+        explanation is prefixed with a clear disclosure, so nobody
+        downstream (admin, report, exports) can mistake an
+        unscreened candidate for a validated one.
 
         Scores every protein with the configured scorer
         (settings.RANKING_SCORER - currently always "composite"),
@@ -64,17 +72,34 @@ class CandidateRankingImporter:
 
             explanation = result["explanation"]
 
+            disclosures = []
+
             if not deg_screened:
 
-                explanation = (
+                disclosures.append(
                     "*** DEG essential-gene screening was SKIPPED "
                     "for this run (no database configured) - this "
                     "candidate's essentiality was NOT confirmed, "
                     "only passed through unscreened. Do not treat "
                     "as a validated essential gene until DEG "
-                    "screening is re-run with a real database. "
-                    "***\n\n"
-                ) + explanation
+                    "screening is re-run with a real database. ***"
+                )
+
+            if not allergenicity_screened:
+
+                disclosures.append(
+                    "*** Allergenicity screening was SKIPPED for "
+                    "this run (no allergen database configured) - "
+                    "this candidate has NOT been confirmed non-"
+                    "allergenic, only passed through unscreened. "
+                    "***"
+                )
+
+            if disclosures:
+
+                explanation = (
+                    "\n".join(disclosures) + "\n\n" + explanation
+                )
 
             ranking_objects.append(
                 CandidateRankingResult(
@@ -82,6 +107,9 @@ class CandidateRankingImporter:
                     protein=protein,
                     scorer_name=settings.RANKING_SCORER,
                     deg_screened=deg_screened,
+                    allergenicity_screened=(
+                        allergenicity_screened
+                    ),
                     antigenicity_component=components[
                         "antigenicity"
                     ],
@@ -115,6 +143,14 @@ class CandidateRankingImporter:
             log_lines.append(
                 "DEG screening was skipped for this run - all "
                 "ranked candidates are flagged deg_screened=False."
+            )
+
+        if not allergenicity_screened:
+
+            log_lines.append(
+                "Allergenicity screening was skipped for this run "
+                "- all ranked candidates are flagged "
+                "allergenicity_screened=False."
             )
 
         if created:

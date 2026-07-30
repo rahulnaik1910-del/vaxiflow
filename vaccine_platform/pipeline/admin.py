@@ -387,11 +387,13 @@ class CandidateRankingResultAdmin(admin.ModelAdmin):
         "final_score",
         "scorer_name",
         "deg_screened",
+        "allergenicity_screened",
     )
 
     list_filter = (
         "scorer_name",
         "deg_screened",
+        "allergenicity_screened",
         "workflow_run",
     )
 

@@ -758,18 +758,42 @@ class PipelineRunner:
         (e.g. no DEG_DATABASE configured) or never ran.
         """
 
-        deg_task = (
+        return PipelineRunner._stage_completed(
+            workflow_run, "deg_filter"
+        )
+
+    @staticmethod
+    def _stage_completed(workflow_run, tool_name):
+        """
+        Generic version of _deg_was_screened - True if the given
+        stage (by tool_name) actually completed for this
+        workflow_run, False if it was skipped or never ran.
+        """
+
+        task = (
             WorkflowTask.objects.filter(
                 workflow_run=workflow_run,
-                stage__tool_name="deg_filter",
+                stage__tool_name=tool_name,
             )
             .order_by("-id")
             .first()
         )
 
         return (
-            deg_task is not None
-            and deg_task.status == "completed"
+            task is not None
+            and task.status == "completed"
+        )
+
+    @staticmethod
+    def _allergenicity_was_screened(workflow_run):
+        """
+        True if the Allergenicity stage actually completed for this
+        workflow_run - False if it was skipped (e.g. no
+        ALLERGEN_DATABASE configured) or never ran.
+        """
+
+        return PipelineRunner._stage_completed(
+            workflow_run, "allergenicity"
         )
 
     @staticmethod
@@ -1742,6 +1766,29 @@ class PipelineRunner:
 
             return False
 
+        allergen_database_available = bool(
+            glob.glob(f"{settings.ALLERGEN_DATABASE}.*")
+        )
+
+        if not allergen_database_available:
+
+            task.status = "skipped"
+            task.completed_at = timezone.now()
+            task.exit_code = 0
+            task.log += (
+                "\nALLERGEN_DATABASE not found at "
+                f"{settings.ALLERGEN_DATABASE} (no files matching "
+                "that prefix) - skipping allergenicity screening.\n"
+                "No candidate will be excluded on allergenicity "
+                "grounds until a real allergen database is "
+                "configured and this stage is re-run - "
+                "allergenicity is UNKNOWN for these candidates, "
+                "not confirmed safe.\n"
+            )
+            task.save()
+
+            return True
+
         essential_clusters = (
             PipelineRunner._get_candidate_clusters(
                 workflow_run, panaroo_run
@@ -2535,10 +2582,28 @@ class PipelineRunner:
             )
             task.save()
 
+        allergenicity_screened = (
+            PipelineRunner._allergenicity_was_screened(
+                workflow_run
+            )
+        )
+
+        if not allergenicity_screened:
+
+            task.log += (
+                "\nNOTE: Allergenicity screening was SKIPPED for "
+                "this run (no allergen database configured). "
+                "These candidates have NOT been confirmed non-"
+                "allergenic - this will be flagged in the ranking "
+                "explanation and the report.\n"
+            )
+            task.save()
+
         import_result = CandidateRankingImporter.score_and_rank(
             workflow_run=workflow_run,
             proteins=final_candidates,
             deg_screened=deg_screened,
+            allergenicity_screened=allergenicity_screened,
         )
 
         task.log += (
