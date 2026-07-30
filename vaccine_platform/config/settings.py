@@ -9,13 +9,20 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
-
 # -----------------------------------------------------------------------------
 # Base Directory
 # -----------------------------------------------------------------------------
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load .env from the actual project root (next to manage.py), not
+# from load_dotenv()'s default search starting at the current
+# working directory. The default is fragile: if Django is ever run
+# from a different directory (or if a second copy of this project
+# exists elsewhere on disk), load_dotenv() with no arguments can
+# silently load the wrong .env file, or none at all, with no error -
+# just settings quietly falling back to their hardcoded defaults.
+load_dotenv(BASE_DIR / ".env")
 
 
 # -----------------------------------------------------------------------------
