@@ -31,7 +31,19 @@ def _run_pipeline(workflow_run_id):
 
         PipelineRunner.run(workflow_run)
 
-        print("PipelineRunner finished successfully")
+        workflow_run.refresh_from_db()
+
+        if workflow_run.status == "completed":
+            print(
+                "PipelineRunner finished - workflow_run status: "
+                "completed"
+            )
+        else:
+            print(
+                "PipelineRunner finished - workflow_run status: "
+                f"{workflow_run.status} (NOT a success - check "
+                "WorkflowTask logs for the failing stage)"
+            )
 
     except Exception as e:
         print("PIPELINE ERROR")

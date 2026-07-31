@@ -63,6 +63,7 @@ class PanarooExecutor:
                 str(output_dir),
                 "--clean-mode",
                 settings.PANAROO_CLEAN_MODE,
+                "--remove-invalid-genes",
             ]
         )
 
