@@ -125,6 +125,49 @@ class PipelineRunner:
     """
 
     @staticmethod
+    def _handle_unexpected_exception(task, exception):
+        """
+        Called whenever a stage method raises an exception that it
+        didn't already catch and convert into a normal task failure
+        itself (a genuine bug, not an anticipated failure like a
+        non-zero subprocess exit code).
+
+        Without this, an uncaught exception propagates out of run()
+        entirely - the outer try/except in the calling view does
+        mark workflow_run as "failed", but the individual
+        WorkflowTask that was mid-flight stays stuck at "running"
+        forever, since nothing ever reaches its own status-setting
+        code. The UI then shows a stage as perpetually "running"
+        with no process actually executing - exactly the bug this
+        exists to prevent.
+
+        Always marks the task "failed" with the full exception
+        logged, and returns False so the calling dispatch branch's
+        existing "if not success: ...; return" logic handles
+        stopping the rest of the pipeline exactly as it already does
+        for anticipated failures.
+        """
+
+        import traceback
+
+        task.status = "failed"
+        task.completed_at = timezone.now()
+        task.exit_code = 1
+        task.log += (
+            "\n\n*** UNEXPECTED ERROR - this stage crashed due to "
+            "a bug, not a normal failure. Full traceback below. "
+            "***\n\n"
+            + traceback.format_exc()
+        )
+        task.save()
+
+        print("UNEXPECTED STAGE EXCEPTION:")
+        print(repr(exception))
+        print(traceback.format_exc())
+
+        return False
+
+    @staticmethod
     def run(workflow_run):
 
         workflow_run.status = "running"
@@ -166,12 +209,19 @@ class PipelineRunner:
 
             if tool_name == "bakta":
 
-                success = (
-                    PipelineRunner._run_bakta_stage(
-                        workflow_run,
-                        task,
+                try:
+                    success = (
+                        PipelineRunner._run_bakta_stage(
+                            workflow_run,
+                            task,
+                        )
                     )
-                )
+                except Exception as stage_exception:
+                    success = (
+                        PipelineRunner._handle_unexpected_exception(
+                            task, stage_exception
+                        )
+                    )
 
                 if not success:
 
@@ -185,12 +235,19 @@ class PipelineRunner:
 
             elif tool_name == "panaroo":
 
-                success = (
-                    PipelineRunner._run_panaroo_stage(
-                        workflow_run,
-                        task,
+                try:
+                    success = (
+                        PipelineRunner._run_panaroo_stage(
+                            workflow_run,
+                            task,
+                        )
                     )
-                )
+                except Exception as stage_exception:
+                    success = (
+                        PipelineRunner._handle_unexpected_exception(
+                            task, stage_exception
+                        )
+                    )
 
                 if not success:
 
@@ -204,12 +261,19 @@ class PipelineRunner:
 
             elif tool_name == "deg_filter":
 
-                success = (
-                    PipelineRunner._run_deg_filter_stage(
-                        workflow_run,
-                        task,
+                try:
+                    success = (
+                        PipelineRunner._run_deg_filter_stage(
+                            workflow_run,
+                            task,
+                        )
                     )
-                )
+                except Exception as stage_exception:
+                    success = (
+                        PipelineRunner._handle_unexpected_exception(
+                            task, stage_exception
+                        )
+                    )
 
                 if not success:
 
@@ -223,12 +287,19 @@ class PipelineRunner:
 
             elif tool_name == "human_homology":
 
-                success = (
-                    PipelineRunner._run_human_homology_stage(
-                        workflow_run,
-                        task,
+                try:
+                    success = (
+                        PipelineRunner._run_human_homology_stage(
+                            workflow_run,
+                            task,
+                        )
                     )
-                )
+                except Exception as stage_exception:
+                    success = (
+                        PipelineRunner._handle_unexpected_exception(
+                            task, stage_exception
+                        )
+                    )
 
                 if not success:
 
@@ -242,12 +313,19 @@ class PipelineRunner:
 
             elif tool_name == "psortb":
 
-                success = (
-                    PipelineRunner._run_psortb_stage(
-                        workflow_run,
-                        task,
+                try:
+                    success = (
+                        PipelineRunner._run_psortb_stage(
+                            workflow_run,
+                            task,
+                        )
                     )
-                )
+                except Exception as stage_exception:
+                    success = (
+                        PipelineRunner._handle_unexpected_exception(
+                            task, stage_exception
+                        )
+                    )
 
                 if not success:
 
@@ -261,12 +339,19 @@ class PipelineRunner:
 
             elif tool_name == "phobius":
 
-                success = (
-                    PipelineRunner._run_phobius_stage(
-                        workflow_run,
-                        task,
+                try:
+                    success = (
+                        PipelineRunner._run_phobius_stage(
+                            workflow_run,
+                            task,
+                        )
                     )
-                )
+                except Exception as stage_exception:
+                    success = (
+                        PipelineRunner._handle_unexpected_exception(
+                            task, stage_exception
+                        )
+                    )
 
                 if not success:
 
@@ -280,12 +365,19 @@ class PipelineRunner:
 
             elif tool_name == "antigenicity":
 
-                success = (
-                    PipelineRunner._run_antigenicity_stage(
-                        workflow_run,
-                        task,
+                try:
+                    success = (
+                        PipelineRunner._run_antigenicity_stage(
+                            workflow_run,
+                            task,
+                        )
                     )
-                )
+                except Exception as stage_exception:
+                    success = (
+                        PipelineRunner._handle_unexpected_exception(
+                            task, stage_exception
+                        )
+                    )
 
                 if not success:
 
@@ -299,12 +391,19 @@ class PipelineRunner:
 
             elif tool_name == "allergenicity":
 
-                success = (
-                    PipelineRunner._run_allergenicity_stage(
-                        workflow_run,
-                        task,
+                try:
+                    success = (
+                        PipelineRunner._run_allergenicity_stage(
+                            workflow_run,
+                            task,
+                        )
                     )
-                )
+                except Exception as stage_exception:
+                    success = (
+                        PipelineRunner._handle_unexpected_exception(
+                            task, stage_exception
+                        )
+                    )
 
                 if not success:
 
@@ -318,12 +417,19 @@ class PipelineRunner:
 
             elif tool_name == "toxicity":
 
-                success = (
-                    PipelineRunner._run_toxicity_stage(
-                        workflow_run,
-                        task,
+                try:
+                    success = (
+                        PipelineRunner._run_toxicity_stage(
+                            workflow_run,
+                            task,
+                        )
                     )
-                )
+                except Exception as stage_exception:
+                    success = (
+                        PipelineRunner._handle_unexpected_exception(
+                            task, stage_exception
+                        )
+                    )
 
                 if not success:
 
@@ -337,12 +443,19 @@ class PipelineRunner:
 
             elif tool_name == "iedb":
 
-                success = (
-                    PipelineRunner._run_iedb_stage(
-                        workflow_run,
-                        task,
+                try:
+                    success = (
+                        PipelineRunner._run_iedb_stage(
+                            workflow_run,
+                            task,
+                        )
                     )
-                )
+                except Exception as stage_exception:
+                    success = (
+                        PipelineRunner._handle_unexpected_exception(
+                            task, stage_exception
+                        )
+                    )
 
                 if not success:
 
@@ -356,12 +469,19 @@ class PipelineRunner:
 
             elif tool_name == "ai_ranking":
 
-                success = (
-                    PipelineRunner._run_ai_ranking_stage(
-                        workflow_run,
-                        task,
+                try:
+                    success = (
+                        PipelineRunner._run_ai_ranking_stage(
+                            workflow_run,
+                            task,
+                        )
                     )
-                )
+                except Exception as stage_exception:
+                    success = (
+                        PipelineRunner._handle_unexpected_exception(
+                            task, stage_exception
+                        )
+                    )
 
                 if not success:
 
