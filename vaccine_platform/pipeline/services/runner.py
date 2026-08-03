@@ -1069,6 +1069,33 @@ class PipelineRunner:
 
             return False
 
+        human_db_prefix = str(
+            settings.BLAST_DATABASES.get("human_swissprot", "")
+        )
+
+        human_db_available = bool(
+            glob.glob(f"{human_db_prefix}.*")
+        ) if human_db_prefix else False
+
+        if not human_db_available:
+
+            task.status = "failed"
+            task.completed_at = timezone.now()
+            task.exit_code = 1
+            task.log += (
+                "\nHuman proteome BLAST database not found at "
+                f"{human_db_prefix} (no files matching that "
+                "prefix). Human Homology is a required safety "
+                "check in this pipeline - unlike DEG/Allergenicity, "
+                "it cannot be skipped. Configure "
+                "BLAST_DATABASES['human_swissprot'] with a real, "
+                "built BLAST database before re-running this "
+                "stage.\n"
+            )
+            task.save()
+
+            return False
+
         essential_clusters = (
             PipelineRunner._get_candidate_clusters(
                 workflow_run, panaroo_run
